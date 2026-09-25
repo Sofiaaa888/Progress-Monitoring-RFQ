@@ -101,7 +101,7 @@
     {{ 'Close' if part.review_done >= 1 else 'Pending' }}
   </span>
 </div>
-          {% if can_edit('review') %}<button type="submit" class="btn-save">Save</button>{% else %}<p class="perm-note">Tabel Drawing Review hanya bisa di-update oleh divisi Engineer.</p>{% endif %}
+          {% if can_edit('review') %}<button type="submit" class="btn-save">Save</button>{% else %}<p class="perm-note">Tidak memiliki akses untuk mengubah Drawing Review.</p>{% endif %}
           <div class="redraw-box upload-pages-box" style="margin-top:16px;">
             <div class="redraw-title">Upload File Drawing Review</div>
             <p class="upload-help">Upload dokumen Drawing Review.</p>
