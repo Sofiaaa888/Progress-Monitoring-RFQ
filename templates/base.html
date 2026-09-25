@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Monitoring RFQ{% endblock %} - Sanoh</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="app-bg">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <img src="{{ url_for('static', filename='img/sanoh-logo.png') }}" alt="Sanoh">
+    </div>
+    <nav class="sidebar-nav">
+      <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint=='dashboard' %}active{% endif %}">Dashboard</a>
+      <a href="{{ url_for('companies') }}" class="nav-item {% if request.endpoint=='companies' %}active{% endif %}">Customer</a>
+      <a href="{{ url_for('progress') }}" class="nav-item {% if request.endpoint in ['progress','progress_model','redraw_detail'] %}active{% endif %}">Progress</a>
+      <a href="{{ url_for('details') }}" class="nav-item {% if request.endpoint=='details' %}active{% endif %}">RFQ Document</a>
+    </nav>
+    <a href="{{ url_for('logout') }}" class="logout-link">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      Logout
+    </a>
+  </div>
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="page-title-flag">
+        <h1>Monitoring RFQ</h1>
+      </div>
+      <div class="user-box">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <img src="{{ url_for('static', filename='img/user.png') }}" alt="user" class="user-avatar">
+          <div class="user-info">
+            <div class="user-name">{{ session.get('username','') }}</div>
+            <div class="user-divisi">{{ session.get('divisi','') }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-wrap">
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="content">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+<script>
+function goBack(event) {
+  var link = event && (event.currentTarget || event.target.closest("a"));
+  if (link && link.href) {
+    event.preventDefault();
+    window.location.href = link.href;
+  }
+}
+
+window.addEventListener("pageshow", function (e) {
+  if (e.persisted) { window.location.reload(); }
+});
+
+document.addEventListener("submit", function (e) {
+  var form = e.target;
+  if (!form.matches || !form.matches("form[enctype='multipart/form-data']")) return;
+  setTimeout(function () {
+    form.querySelectorAll("button[type=submit], button:not([type])").forEach(function (btn) {
+      btn.disabled = true;
+      btn.dataset.label = btn.textContent;
+      btn.textContent = "Mengupload...";
+    });
+  }, 0);
+});
+</script>
+</body>
+</html>

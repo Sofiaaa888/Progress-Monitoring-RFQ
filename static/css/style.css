@@ -1,0 +1,2112 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  background: #d7ecf7;
+  color: #1a1a1a;
+}
+
+/* ---------- Login ---------- */
+.login-body {
+  background-size: cover;
+  background-position: center;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-overlay {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(200, 225, 240, 0.55);
+}
+.login-box {
+  width: 420px;
+  max-width: 90vw;
+  padding: 30px;
+  text-align: center;
+}
+.login-logo { width: 220px; margin-bottom: 30px; }
+.login-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-radius: 30px;
+  padding: 14px 24px;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+.login-field input, .login-field select {
+  border: none;
+  outline: none;
+  font-size: 17px;
+  width: 100%;
+  background: transparent;
+  color: #555;
+}
+.btn-sign {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 30px;
+  background: #0d3fa8;
+  color: #fff;
+  font-size: 19px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 6px;
+}
+.btn-sign:hover { background: #0a3286; }
+.register-link {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 13px;
+  color: #666;
+}
+.register-link a {
+  color: #0d3fa8;
+  font-weight: 700;
+  text-decoration: none;
+}
+.register-link a:hover { text-decoration: underline; }
+
+/* ---------- App shell ---------- */
+.app-bg { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 250px;
+  background: linear-gradient(180deg, #123a8f 0%, #0a2c78 100%);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.sidebar-logo {
+  background: #c9dceb;
+  padding: 24px 20px;
+}
+.sidebar-logo img { width: 100%; max-width: 170px; }
+.sidebar-nav {
+  flex: 1;
+  padding: 30px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nav-item {
+  color: #fff;
+  text-decoration: none;
+  font-size: 22px;
+  font-weight: 600;
+  padding: 16px 30px;
+}
+.nav-item.active { background: #7ea5d6; }
+.nav-item:hover:not(.active) { background: rgba(255,255,255,0.08); }
+.logout-link {
+  color: #fff;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 30px;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.main-area { flex: 1; padding: 30px 40px; }
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 26px;
+}
+.page-title-flag {
+  background: #fff;
+  padding: 14px 40px 14px 24px;
+  clip-path: polygon(0 0, 88% 0, 100% 50%, 88% 100%, 0 100%);
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.08);
+}
+.page-title-flag h1 {
+  margin: 0;
+  color: #0d3fa8;
+  font-size: 34px;
+  font-weight: 800;
+}
+.user-box { display: flex; align-items: center; gap: 12px; }
+.user-avatar {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: #fff; border: 2px solid #123a8f; padding: 3px;
+}
+.user-name, .user-divisi { font-weight: 700; text-align: right; line-height: 1.2; }
+.user-divisi { font-weight: 600; color: #1a1a1a; }
+
+.flash-wrap { margin-bottom: 16px; }
+.flash {
+  padding: 12px 18px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.flash-success { background: #d6f5db; color: #1c6b2e; }
+.flash-error { background: #ffd9d9; color: #a11919; }
+
+/* ---------- Dashboard ---------- */
+.total-rfq-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 165px;
+    flex: 0 0 165px;
+}
+
+.total-rfq-item {
+    background: white;
+    border-radius: 12px;
+    padding: 12px 15px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 66px;
+    box-sizing: border-box;
+}
+
+.total-rfq-label {
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.total-rfq-value {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+/* Total RFQ Selesai = HIJAU */
+.total-rfq-item:nth-child(2) {
+    background: #28a745;
+    color: white;
+}
+
+/* Total RFQ Pending = MERAH */
+.total-rfq-item:nth-child(3) {
+    background: #dc3545;
+    color: white;
+}
+
+.total-rfq-value {
+  font-weight: 900;
+  font-size: 26px;
+  background: #fff;
+  color: #123a8f;
+  padding: 6px 10px;
+  border-radius: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+.total-rfq-label { font-weight: 700; font-size: 17px; }
+.total-rfq-value {
+  font-weight: 900;
+  font-size: 26px;
+  background: #fff;
+  color: #123a8f;
+  padding: 2px 18px;
+  border-radius: 10px;
+}
+.dashboard-grid {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+.dashboard-grid > .month-card {
+  flex: 0 0 300px;
+}
+.dashboard-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.dashboard-summary-row {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+}
+.category-panel-top {
+  flex: 1;
+  min-width: 0;
+}
+.category-panel-top .category-summary {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.category-panel-top .category-table {
+  flex: 1;
+}
+.category-panel-top .selected-month-label {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.card { background: transparent; }
+.month-table, .category-table, .panel-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.month-table { min-width: 0; }
+.month-table th, .month-table td {
+  border: 1px solid #6a6a6a;
+  padding: 7px 12px;
+  text-align: left;
+  font-weight: 600;
+}
+.month-table thead th { background: #ffebc6; }
+.month-table tbody tr:nth-child(odd) { background: #bfe4f2; }
+.month-table tbody tr:nth-child(even) { background: #fff; }
+.month-table tbody tr.status-pending { background: #e1edff; }
+.month-table tbody tr.status-done { background: #c3ecc9; }
+.month-table tbody tr.status-pending .qty-cell { color: #a11919; font-weight: 800; }
+.month-table tbody tr.status-done .qty-cell { color: #1c6b2e; font-weight: 800; }
+.month-row { cursor: pointer; }
+.month-row.selected { outline: 3px solid #0d3fa8; outline-offset: -3px; }
+.month-name { color: #333; }
+.month-row td:first-child { color: #333; }
+.month-row:nth-child(4n+1) .month-name, .month-row:nth-child(6n+3) .month-name {}
+
+.category-table th, .category-table td {
+  border: 1px solid #333;
+  padding: 12px 18px;
+  text-align: center;
+  font-weight: 700;
+}
+.cat-chasis { background: #f3f176; }
+.cat-nylon { background: #f5a94e; }
+.cat-brazing { background: #b6ea6b; }
+.category-table td { background: #f7f7f7; }
+.category-table td.overdue, .category-table td.overdue .cat-link {
+  color: #c01818;
+  font-weight: 900;
+}
+.status-close { color: #1c8a3a; font-weight: 800; }
+.status-close.overdue, .status-close.overdue .cat-link { color: #c01818; }
+.cat-link { color: inherit; text-decoration: none; display: block; }
+.selected-month-label { margin-top: 10px; font-weight: 600; color: #123a8f; }
+
+.reminder-box {
+  background: #e3d3ae;
+  border-radius: 22px;
+  overflow: hidden;
+}
+
+.reminder-header {
+  background: #e8382c;
+  color: #fff;
+  font-weight: 800;
+  font-size: 22px;
+  text-align: center;
+  padding: 14px;
+}
+
+.reminder-body {
+  padding: 20px 30px;
+}
+
+.reminder-body p {
+  margin: 10px 0;
+  font-size: 17px;
+}
+
+.reminder-link {
+  display: block;
+  color: #c62828;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.reminder-link:hover {
+  text-decoration: underline;
+}
+
+.reminder-months {
+  color: #1a1a1a !important;
+  font-weight: 700 !important;
+}
+
+/* ---------- Panels (progress / detail / customer / reason) ---------- */
+.tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+.tab {
+  padding: 10px 22px;
+  border-radius: 20px;
+  background: #cfe2f0;
+  color: #123a8f;
+  font-weight: 700;
+  text-decoration: none;
+}
+.tab.active { background: #123a8f; color: #fff; }
+.small-tabs .tab { font-size: 14px; padding: 8px 16px; }
+
+.panel {
+  background: #7ea5d6;
+  border-radius: 24px;
+  padding: 4px;
+  max-width: 900px;
+}
+.wide-panel { max-width: 1300px; width: 100%; min-width: 0; }
+.panel-header {
+  background: #fdeecb;
+  color: #123a8f;
+  font-weight: 800;
+  text-align: center;
+  padding: 12px;
+  border-radius: 18px 18px 0 0;
+  font-size: 18px;
+}
+.panel-table { background: #e7ecf4; border-radius: 0 0 18px 18px; overflow: hidden; }
+.panel-table th, .panel-table td {
+  border: 1px solid #1a1a1a;
+  padding: 12px 16px;
+  text-align: left;
+}
+.panel-table thead th { background: #d3dcea; font-weight: 700; }
+.panel-table tbody tr:nth-child(even) { background: #dde5f0; }
+.clickable-row { cursor: pointer; }
+.clickable-row:hover { background: #c7d6ea !important; }
+.cell-link { display: block; color: inherit; text-decoration: none; padding: 4px 0; }
+.cell-link:hover { text-decoration: underline; color: #123a8f; }
+.empty-row { text-align: center; color: #666; font-style: italic; }
+.back-link { display: inline-block; margin-top: 16px; color: #123a8f; font-weight: 700; text-decoration: none; }
+.link-btn {
+  background: #123a8f; color: #fff; padding: 6px 14px; border-radius: 14px;
+  text-decoration: none; font-size: 13px; font-weight: 600;
+}
+.inline-form { display: inline-flex; gap: 8px; align-items: center; margin: 0; padding: 0; }
+.inline-form input { flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid #999; }
+
+.upload-panel { background: #7ea5d6; }
+.upload-body { background: #e7ecf4; padding: 20px; border-radius: 0 0 18px 18px; }
+.upload-form { display: flex; flex-direction: column; gap: 14px; }
+.submit-layout { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+.checklist-col { flex: 1.4; min-width: 320px; }
+.form-col { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 14px; }
+.checklist-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; }
+.checklist-table th, .checklist-table td { border: 1px solid #b9c6da; padding: 8px 12px; text-align: left; font-size: 14px; }
+.checklist-table thead th { background: #d3dcea; font-weight: 700; }
+.chk-no { width: 40px; text-align: center; }
+.chk-label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; font-weight: 500; }
+.chk-label input { margin-top: 3px; }
+.checklist-hint { font-size: 12px; color: #555; margin-top: 8px; font-style: italic; }
+.form-col label {
+  display: flex; flex-direction: column; gap: 6px; font-weight: 700; color: #123a8f;
+  font-size: 14px;
+}
+.form-col input[type=text], .form-col input[type=file] {
+  border: 1px solid #7ea5d6; border-radius: 8px; padding: 8px 12px;
+  font-family: inherit; font-size: 14px; background: #fff;
+}
+.action-cell { display: flex; gap: 8px; align-items: center; white-space: nowrap; flex-wrap: wrap; }
+.download-cell { vertical-align: top; }
+.tag-divisi { color: #666; font-size: 12px; }
+.ref-panel .ref-body { background: #e7ecf4; padding: 20px; border-radius: 0 0 18px 18px; text-align: center; }
+.ref-image { max-width: 100%; border: 1px solid #b9c6da; border-radius: 8px; }
+.ref-caption { margin-top: 10px; color: #444; font-size: 13px; font-style: italic; }
+
+/* ---------- Kolom Note pada tabel RFQ Document: dibatasi agar tidak memanjang ke bawah ---------- */
+.note-col { width: 220px; }
+.note-cell {
+  width: 220px;
+  max-width: 220px;
+  vertical-align: top;
+}
+.note-cell-inner {
+  max-height: 90px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+  font-size: 13px;
+  padding-right: 6px;
+}
+.note-cell-inner::-webkit-scrollbar { width: 6px; }
+.note-cell-inner::-webkit-scrollbar-thumb { background: #9bb0c8; border-radius: 4px; }
+
+/* ---------- Redraw detail ---------- */
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 30px;
+  align-items: start;
+  width: 100%;
+}
+.detail-left { min-width: 0; width: 100%; }
+.detail-right { min-width: 0; width: 100%; display: flex; flex-direction: column; gap: 18px; }
+.breadcrumb { color: #123a8f; font-weight: 700; margin-bottom: 14px; }
+
+.redraw-box {
+  background: #a9c1de;
+  border-radius: 10px;
+  padding: 10px;
+}
+.redraw-title {
+  background: #123a8f;
+  color: #fff;
+  font-weight: 800;
+  padding: 10px 24px;
+  border-radius: 10px;
+  display: inline-block;
+  margin-bottom: 14px;
+  font-size: 20px;
+}
+.redraw-table { width: 100%; background: #dde5f0; border-collapse: collapse; margin-bottom: 10px; }
+.redraw-table td { border: 1px solid #333; padding: 8px 10px; }
+.rlabel { font-weight: 700; width: 190px; }
+.redraw-table input[type=text] { width: 100%; border: none; background: transparent; font-size: 15px; }
+.status-row { display: flex; gap: 20px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; font-weight: 600; }
+.status-row select { padding: 6px 10px; border-radius: 6px; }
+.btn-save {
+  background: #123a8f; color: #fff; border: none; padding: 10px 18px;
+  border-radius: 20px; font-weight: 700; cursor: pointer; font-size: 15px;
+}
+.perm-note { color: #a11919; font-weight: 600; font-size: 14px; }
+.note-field { margin-bottom: 14px; }
+.note-field label { display: block; font-weight: 700; margin-bottom: 6px; color: #123a8f; }
+.note-field textarea {
+  width: 100%; min-height: 60px; border: 1px solid #7ea5d6; border-radius: 8px;
+  padding: 8px 12px; font-family: inherit; font-size: 14px; resize: vertical;
+  background: #f5f8fc;
+}
+.note-field textarea:disabled { background: #e9edf3; color: #666; }
+
+.fg-upload-box { margin-top: 18px; }
+.fg-upload-cols { display: flex; gap: 16px; flex-wrap: wrap; }
+.fg-col { flex: 1; min-width: 230px; background: #fff; border-radius: 14px; padding: 14px; }
+.fg-col-title {
+  display: inline-block; color: #fff; font-weight: 800; font-size: 12px;
+  padding: 4px 12px; border-radius: 10px; margin-bottom: 10px;
+}
+.fg-belum { background: #f22e18; }
+.fg-sudah { background: #4ae78e; }
+.fg-upload-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.fg-upload-form input[type=file] {
+  flex: 1; min-width: 130px; font-size: 12px; border: 1px solid #7ea5d6;
+  border-radius: 8px; padding: 6px 8px; background: #f5f8fc;
+}
+.fg-upload-form .btn-save { padding: 6px 16px; font-size: 13px; }
+.fg-file-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fg-file-list li {
+  border-bottom: 1px solid #eee; padding-bottom: 8px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.fg-file-meta { font-size: 11px; color: #888; }
+.fg-empty { color: #999; font-style: italic; font-size: 13px; }
+.btn-approve {
+  background: #2e8b57; color: #fff; border: none; padding: 4px 12px;
+  border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.btn-unapprove {
+  background: #c0392b; color: #fff; border: none; padding: 4px 12px;
+  border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+
+.notes-card { background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+.notes-title { font-weight: 800; font-size: 18px; margin-bottom: 10px; }
+.notes-card textarea {
+  width: 100%; min-height: 70px; border: 1px solid #ccc; border-radius: 8px;
+  padding: 8px; font-family: inherit; resize: vertical;
+}
+.btn-save-note {
+  margin-top: 8px; background: #123a8f; color: #fff; border: none;
+  padding: 6px 18px; border-radius: 14px; font-weight: 700; cursor: pointer;
+}
+
+.divisi-card { border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+.divisi-title { font-weight: 800; padding: 10px 16px; color: #123a8f; }
+.divisi-marketing .divisi-title { background: #cdf07a; }
+.divisi-engineer .divisi-title { background: #f5a94e; }
+.divisi-purchasing .divisi-title { background: #7fd88f; }
+.divisi-management .divisi-title { background: #d7c6f5; }
+.divisi-notes { padding: 10px 16px; min-height: 30px; }
+.note-item { border-bottom: 1px solid #eee; padding: 6px 0; }
+.note-text { font-size: 14px; }
+.note-meta { font-size: 11px; color: #888; margin-top: 2px; }
+.note-empty { color: #999; font-style: italic; }
+.btn-remove {
+  background: none; border: none; color: #a11919; font-size: 11px;
+  font-weight: 700; cursor: pointer; padding: 0; margin-top: 2px;
+}
+.add-note-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px 14px;
+}
+.add-note-form > input[type="text"] {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-family: inherit;
+}
+.note-feedback-row {
+  display: flex;
+  align-items: center;
+}
+.note-file-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  color: #16449b;
+  font-size: 12px;
+  font-weight: 700;
+}
+.note-file-label input[type="file"] {
+  width: 100%;
+  font-size: 11px;
+}
+.note-recipient-box {
+  padding: 8px 10px;
+  border: 1px solid #d5dbe5;
+  border-radius: 7px;
+  background: #f8fbff;
+}
+.note-recipient-label {
+  display: block;
+  color: #16449b;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.note-recipient-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+}
+.note-recipient-options label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.note-recipient-options input {
+  width: 15px;
+  height: 15px;
+}
+.note-send-btn {
+  align-self: flex-end;
+  background: #123a8f;
+  color: #fff;
+  border: none;
+  min-width: 120px;
+  padding: 7px 14px;
+  border-radius: 7px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.note-recipient {
+  margin-top: 4px;
+  color: #16449b;
+  font-size: 10px;
+  font-weight: 700;
+}
+.note-attachment {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: #f1f6ff;
+  font-size: 11px;
+}
+.note-attachment .link-btn {
+  white-space: nowrap;
+  padding: 3px 8px;
+  font-size: 10px;
+}
+
+
+@media (max-width: 900px) {
+  .app-bg { flex-direction: column; }
+  .sidebar { width: 100%; flex-direction: row; align-items: center; flex-wrap: wrap; }
+  .sidebar-nav { flex-direction: row; flex-wrap: wrap; padding: 10px; }
+  .main-area { padding: 20px; }
+}
+
+/* Upload file progress: checklist + tabel seragam */
+.progress-upload-box { margin-top: 14px; }
+.upload-help { margin: 8px 0 12px; color: #334155; font-size: 13px; }
+.progress-checklist {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #b7c9e6;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+.progress-check-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid #d3ddea;
+  border-radius: 7px;
+  background: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.progress-check-item input { width: 18px; height: 18px; cursor: pointer; }
+.selected-file-name {
+  margin: 10px 0;
+  padding: 9px 12px;
+  border-radius: 6px;
+  background: #eef5ff;
+  color: #16449b;
+  font-weight: 700;
+}
+.upload-input-row { display: flex; gap: 10px; align-items: center; }
+.upload-input-row input[type="file"] { flex: 1; }
+.progress-file-block { margin-top: 14px; }
+.file-block-title { text-align: center; }
+.file-section { margin-top: 10px; }
+.file-section-title {
+  padding: 8px 12px;
+  font-weight: 800;
+  color: #16449b;
+  background: #fff2cc;
+  border: 1px solid #83a9df;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+}
+.table-wrap { overflow-x: auto; }
+.progress-file-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+  background: #fff;
+  font-size: 13px;
+}
+.progress-file-table th,
+.progress-file-table td {
+  border: 1px solid #aebbd0;
+  padding: 8px 9px;
+  text-align: center;
+  vertical-align: middle;
+}
+.progress-file-table th { background: #d8e2f1; font-weight: 800; }
+.progress-file-table td:nth-child(2),
+.progress-file-table td:nth-child(3),
+.progress-file-table td:nth-child(4) { text-align: left; }
+.file-empty { color: #777; font-style: italic; text-align: left !important; }
+.inline-form { display: inline-block; margin: 2px; }
+.doc-list-box { margin-top: 18px; }
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.badge-approved { background: #c3ecc9; color: #1c6b2e; }
+.badge-pending { background: #ffe3b3; color: #8a4b00; }
+.progress-file-table .fname-cell {
+  text-align: left;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.progress-file-table .aksi-cell { text-align: left; }
+.aksi-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.aksi-actions .inline-form { margin: 0; }
+@media (max-width: 480px) {
+  .aksi-actions { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 900px) {
+  .progress-checklist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .upload-input-row { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 560px) {
+  .progress-checklist { grid-template-columns: 1fr; }
+}
+
+/* RFQ + separate redraw upload pages */
+.form-col select, .form-col input[type=date] {
+  border: 1px solid #7ea5d6;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  background: #fff;
+}
+.redraw-table .qty-input {
+  width: 110px;
+  border: 1px solid #7ea5d6;
+  border-radius: 7px;
+  background: #fff;
+  padding: 7px 10px;
+  font-size: 15px;
+}
+.redraw-progress-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 16px;
+  padding: 12px 15px;
+  background: #e7ecf4;
+  border-radius: 10px;
+  color: #123a8f;
+  font-weight: 700;
+}
+.redraw-progress-summary strong { font-size: 20px; }
+.status-pill {
+  margin-left: auto;
+  padding: 5px 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #7ea5d6;
+}
+.redraw-upload-doc-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr);
+  gap: 16px;
+  align-items: stretch;
+  margin-top: 18px;
+}
+.redraw-upload-doc-grid > .redraw-box {
+  min-width: 0;
+  margin-top: 0;
+  width: 100%;
+}
+.upload-pages-box { margin-top: 0; }
+.upload-page-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.upload-page-link {
+  display: block;
+  padding: 13px 16px;
+  border-radius: 10px;
+  background: #123a8f;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 800;
+  text-align: center;
+}
+.upload-page-link:hover { opacity: .9; }
+.upload-single-body { background: #e7ecf4; padding: 20px; border-radius: 0 0 18px 18px; }
+.upload-info-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.upload-info-grid > div {
+  background: #fff;
+  border: 1px solid #b9c6da;
+  border-radius: 9px;
+  padding: 10px 12px;
+}
+.upload-info-grid span { display:block; color:#64748b; font-size:12px; margin-bottom:4px; }
+.upload-info-grid strong { color:#123a8f; }
+.single-upload-form {
+  display: flex;
+  gap: 14px;
+  align-items: end;
+  flex-wrap: wrap;
+  background: #fff;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid #b9c6da;
+}
+.single-upload-form label { flex:1; min-width:280px; display:flex; flex-direction:column; gap:7px; color:#123a8f; font-weight:700; }
+.single-upload-form input[type=file] { border:1px solid #7ea5d6; border-radius:8px; padding:8px; background:#f8fbff; }
+.upload-list-panel {
+  margin-top: 20px;
+  width: 100%;
+  max-width: 1300px;
+  min-width: 0;
+  overflow: hidden;
+}
+.upload-list-panel .panel-table {
+  width: 100%;
+  table-layout: fixed;
+}
+.upload-list-panel .panel-table th,
+.upload-list-panel .panel-table td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.upload-list-panel .panel-table th:nth-child(1),
+.upload-list-panel .panel-table td:nth-child(1) { width: 4%; }
+.upload-list-panel .panel-table th:nth-child(2),
+.upload-list-panel .panel-table td:nth-child(2) { width: 25%; }
+.upload-list-panel .panel-table th:nth-child(3),
+.upload-list-panel .panel-table td:nth-child(3) { width: 8%; }
+.upload-list-panel .panel-table th:nth-child(4),
+.upload-list-panel .panel-table td:nth-child(4) { width: 7%; }
+.upload-list-panel .panel-table th:nth-child(5),
+.upload-list-panel .panel-table td:nth-child(5) { width: 8%; }
+.upload-list-panel .panel-table th:nth-child(6),
+.upload-list-panel .panel-table td:nth-child(6) { width: 9%; }
+.upload-list-panel .panel-table th:nth-child(7),
+.upload-list-panel .panel-table td:nth-child(7) { width: 9%; }
+.upload-list-panel .panel-table th:nth-child(8),
+.upload-list-panel .panel-table td:nth-child(8) { width: 9%; }
+.upload-list-panel .panel-table th:nth-child(9),
+.upload-list-panel .panel-table td:nth-child(9) { width: 10%; }
+.upload-list-panel .panel-table th:nth-child(10),
+.upload-list-panel .panel-table td:nth-child(10) { width: 11%; }
+@media (max-width: 1100px) {
+  .detail-grid { grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; }
+}
+@media (max-width: 900px) {
+  .detail-grid { grid-template-columns: 1fr; }
+  .redraw-upload-doc-grid { grid-template-columns: 1fr; }
+  .upload-page-links, .upload-info-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .upload-page-links, .upload-info-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- Progress search & model-level partlist ---------- */
+.table-tools { padding: 14px 16px; background: #eef4fa; border-bottom: 1px solid #b9c6da; }
+.table-search { width: min(420px, 100%); padding: 10px 14px; border: 1px solid #7ea5d6; border-radius: 8px; font-size: 15px; background: #fff; }
+.model-partlist-cell { vertical-align: middle; text-align: center; font-weight: 700; background: rgba(255,255,255,0.18); }
+
+
+/* ---------- Dashboard Pie Chart ---------- */
+.dashboard-chart-box {
+  background: rgba(255,255,255,0.72);
+  border: 1px solid rgba(18,58,143,0.25);
+  border-radius: 18px;
+  padding: 18px 22px 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.dashboard-chart-title {
+  text-align: center;
+  color: #123a8f;
+  font-size: 19px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.chart-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  height: 310px;
+  margin: 0 auto;
+}
+.chart-total-note {
+  text-align: center;
+  font-size: 13px;
+  color: #555;
+  margin-top: 4px;
+}
+@media (max-width: 600px) {
+  .chart-wrap { height: 260px; }
+}
+
+/* ---------- Dashboard Progress Pie Charts ---------- */
+.dashboard-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.dashboard-charts-grid .dashboard-chart-box {
+  min-width: 0;
+}
+.chart-wrap-small {
+  max-width: 330px;
+  height: 285px;
+}
+@media (max-width: 1000px) {
+  .dashboard-grid { flex-wrap: wrap; }
+  .dashboard-grid > .month-card { flex: 1 1 100%; }
+  .dashboard-summary-row { flex-wrap: wrap; }
+  .total-rfq-banner { flex: 1 1 100%; width: auto; flex-direction: row; }
+  .total-rfq-item { flex: 1; }
+}
+@media (max-width: 900px) {
+  .dashboard-charts-grid {
+    grid-template-columns: 1fr;
+  }
+  .chart-wrap-small {
+    max-width: 430px;
+  }
+}
+
+
+/* Menunjukkan bahwa halaman Progress sedang difilter dari bulan Dashboard */
+.selected-progress-month {
+  margin: 8px 0 14px;
+  font-size: 16px;
+  color: #27477d;
+}
+
+
+.global-back-btn {
+  margin-right: 14px;
+  border: 1px solid #d6d6d6;
+  background: #fff;
+  color: #333;
+  border-radius: 8px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.global-back-btn:hover { opacity: .85; }
+.fixed-qty-note {
+  padding: 10px 12px;
+  background: #f5f5f5;
+  border-radius: 7px;
+  margin-bottom: 10px;
+}
+
+
+/* ---------- RFQ auto condition / due date ---------- */
+.auto-rfq-box {
+  border: 1px solid #8aa6ca;
+  border-radius: 10px;
+  background: #f8fbff;
+  overflow: hidden;
+}
+.auto-rfq-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #d6e0ec;
+  font-size: 13px;
+}
+.auto-rfq-row:last-of-type { border-bottom: 0; }
+.auto-rfq-row span { color: #475569; }
+.auto-rfq-row strong { color: #123a8f; text-align: right; }
+.auto-rfq-note {
+  padding: 9px 12px;
+  background: #fff7e6;
+  color: #7a4b00;
+  border-top: 1px solid #e8d4aa;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.auto-rfq-note.is-valid {
+  background: #edf8ef;
+  color: #246b35;
+  border-top-color: #c7e5cc;
+}
+.condition-cell { font-weight: 800; color: #123a8f; white-space: nowrap; }
+
+@media (max-width: 1000px) {
+  .month-table { min-width: 0; }
+}
+
+/* =========================================================
+   DASHBOARD LAYOUT - FINAL
+   ========================================================= */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(460px, 1fr) minmax(0, 2fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.dashboard-left {
+  min-width: 0;
+}
+
+.dashboard-year-title {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  color: #123a8f;
+  font-size: 26px;
+  font-weight: 900;
+  background: #fff;
+  border-radius: 14px;
+  padding: 10px 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dashboard-left-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 210px;
+  gap: 18px;
+  align-items: stretch;
+}
+
+.dashboard-left .month-card {
+  width: 100%;
+  min-width: 0;
+}
+
+.dashboard-right {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.selected-dashboard-title {
+  width: 100%;
+  box-sizing: border-box;
+  background: #123a8f;
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 900;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.total-rfq-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+}
+
+.total-rfq-item {
+  min-height: 100px;
+  flex: 1;
+  box-sizing: border-box;
+}
+
+.category-panel-top {
+  width: 100%;
+  min-width: 0;
+}
+
+.category-panel-top .category-summary {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.category-panel-top .category-table {
+  flex: 1;
+}
+
+.dashboard-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.dashboard-charts-grid .dashboard-chart-box {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .dashboard-left-content {
+    grid-template-columns: 1fr;
+  }
+
+  .total-rfq-banner {
+    width: 100%;
+    min-width: 0;
+    flex-direction: row;
+  }
+
+  .total-rfq-item {
+    flex: 1;
+  }
+}
+
+/* ---------- Note Marketing pada RFQ Document ---------- */
+.marketing-note-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.marketing-note-field textarea {
+  width: 100%;
+  min-height: 95px;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid #7ea5d6;
+  border-radius: 8px;
+  background: #f8fbff;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.marketing-note-field textarea:focus {
+  outline: none;
+  border-color: #123a8f;
+  box-shadow: 0 0 0 2px rgba(18,58,143,.12);
+}
+
+.marketing-note-hint {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+
+/* =========================================================
+   DASHBOARD ORDER & SPACING - FINAL FIX
+   ========================================================= */
+.dashboard-right {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+}
+
+.dashboard-right .selected-dashboard-title { order: 1; }
+.dashboard-right .category-panel-top { order: 2; margin-top: 0 !important; margin-bottom: 4px !important; }
+.dashboard-right .dashboard-charts-grid { order: 3; margin-top: 0 !important; }
+.dashboard-right .reminder-box { order: 4; margin-top: 2px !important; }
+
+.dashboard-right .category-table {
+  margin-bottom: 0 !important;
+}
+
+.dashboard-right .selected-month-label {
+  margin: 8px 0 0 !important;
+}
+
+.dashboard-right .dashboard-charts-grid {
+  gap: 18px !important;
+}
+
+.dashboard-right .dashboard-chart-box {
+  margin: 0 !important;
+}
+
+.dashboard-right .reminder-box {
+  width: 100%;
+}
+
+
+/* ---------- Note Marketing: pindah ke ruang kosong bawah checklist ---------- */
+.checklist-col .marketing-note-field {
+  margin-top: 22px;
+  width: 100%;
+}
+
+.checklist-col .marketing-note-field label {
+  display: block;
+  margin-bottom: 6px;
+  color: #123a8f;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.checklist-col .marketing-note-field textarea {
+  width: 100%;
+  min-height: 115px;
+  box-sizing: border-box;
+}
+
+.checklist-col .marketing-note-hint {
+  display: block;
+  margin-top: 5px;
+  line-height: 1.4;
+}
+
+
+/* ---------- Dashboard annual view ---------- */
+.dashboard-year-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.year-selector-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+}
+.year-selector-form label { font-size: 13px; font-weight: 700; color: #27477d; }
+.year-selector-form select {
+  border: 1px solid #9bb0c8;
+  border-radius: 8px;
+  padding: 5px 8px;
+  background: #fff;
+  font-weight: 700;
+  color: #123a8f;
+}
+.total-rfq-clickable {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+.total-rfq-clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.18);
+}
+.total-rfq-all { order: 3; }
+.total-rfq-banner .total-rfq-clickable:nth-child(2) {
+  background: #28a745;
+  color: white;
+}
+.total-rfq-banner .total-rfq-clickable:nth-child(3) {
+  background: #dc3545;
+  color: white;
+}
+.total-rfq-banner .total-rfq-clickable .total-rfq-value {
+  color: #123a8f;
+}
+.dashboard-charts-grid .chart-wrap-small {
+  height: 210px;
+  max-width: 300px;
+}
+.dashboard-chart-box {
+  background: #fff;
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+.dashboard-chart-title {
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+  color: #123a8f;
+}
+.chart-total-note {
+  font-size: 11px;
+  text-align: center;
+  color: #666;
+  margin-top: 2px;
+}
+.reminder-box {
+  border-radius: 14px;
+  width: 100%;
+  max-width: none;
+}
+
+.reminder-header {
+  font-size: 18px;
+  padding: 8px;
+}
+
+.reminder-body {
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.reminder-body p {
+  display: block;
+  width: 100%;
+  margin: 3px 0;
+  font-size: 13px;
+}
+
+.reminder-link {
+  display: block;
+  width: 100%;
+}
+
+.reminder-months {
+  width: 100%;
+}
+.dashboard-rfq-list { max-width: 1200px; }
+.dashboard-rfq-toolbar {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: #eef4fb;
+}
+.dashboard-rfq-table { width: 100%; }
+.rfq-status-pill {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-weight: 800;
+}
+.rfq-status-pill.status-close { background: #c3ecc9; color: #1c6b2e; }
+.rfq-status-pill.status-pending { background: #e1edff; color: #a11919; }
+@media (max-width: 700px) {
+  .dashboard-year-title { flex-direction: column; }
+  .reminder-body { grid-template-columns: 1fr; }
+  .reminder-months { grid-column: auto; }
+}
+
+/* ---------- Kolom kiri (tabel bulan + total) disejajarkan tingginya dengan kolom kanan ---------- */
+.dashboard-grid {
+  align-items: stretch !important;
+}
+.dashboard-left {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-left-content {
+  flex: 1;
+  min-height: 0;
+}
+.dashboard-left .month-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-left .month-card .month-table {
+  flex: 1;
+  height: 100%;
+}
+@media (max-width: 1100px) {
+  .dashboard-grid { align-items: stretch !important; }
+  .dashboard-left { height: auto; }
+  .dashboard-left .month-card .month-table { height: auto; }
+}
+
+
+@media (max-width: 700px) {
+  .note-col, .note-cell { width: 140px; max-width: 140px; }
+  .note-cell-inner { font-size: 12px; max-height: 70px; }
+}
+
+
+/* ---------- Partlist file table: rapikan kolom aksi ---------- */
+.partlist-file-table {
+  width: 100%;
+  table-layout: fixed;
+}
+.partlist-file-table th,
+.partlist-file-table td {
+  padding: 10px 12px;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.partlist-file-table th:nth-child(1),
+.partlist-file-table td:nth-child(1) { width: 6%; text-align: center; }
+.partlist-file-table th:nth-child(2),
+.partlist-file-table td:nth-child(2) { width: 27%; text-align: left; }
+.partlist-file-table th:nth-child(3),
+.partlist-file-table td:nth-child(3) { width: 13%; text-align: left; }
+.partlist-file-table th:nth-child(4),
+.partlist-file-table td:nth-child(4) { width: 12%; text-align: center; }
+.partlist-file-table th:nth-child(5),
+.partlist-file-table td:nth-child(5) { width: 15%; text-align: center; }
+.partlist-file-table th:nth-child(6),
+.partlist-file-table td:nth-child(6) { width: 12%; text-align: center; }
+.partlist-file-table th:nth-child(7),
+.partlist-file-table td:nth-child(7) { width: 15%; text-align: center; }
+.partlist-file-table .action-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: normal;
+}
+.partlist-file-table .action-cell .inline-form {
+  margin: 0;
+}
+.partlist-file-table .action-cell .link-btn,
+.partlist-file-table .action-cell .btn-approve,
+.partlist-file-table .action-cell .btn-unapprove {
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .partlist-file-table { min-width: 760px; }
+}
+
+/* ---------- Partlist: perbaikan final tabel & kolom Aksi ---------- */
+.upload-list-panel .panel-table.partlist-file-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(1),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(1) { width: 6%; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(2),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(2) { width: 27%; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(3),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(3) { width: 13%; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(4),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(4) { width: 12%; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(5),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(5) { width: 15%; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(6),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(6) { width: 12%; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(7),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(7) { width: 15%; }
+
+/* Jangan ubah td menjadi flex: border tabel harus tetap satu cell penuh. */
+.upload-list-panel .panel-table.partlist-file-table td.action-cell {
+  display: table-cell;
+  width: 15%;
+  text-align: center;
+  vertical-align: middle;
+  padding: 10px 8px;
+}
+
+.upload-list-panel .panel-table.partlist-file-table td.action-cell > .link-btn,
+.upload-list-panel .panel-table.partlist-file-table td.action-cell > .inline-form {
+  display: block;
+  width: fit-content;
+  margin: 6px auto;
+}
+
+.upload-list-panel .panel-table.partlist-file-table td.action-cell > .inline-form {
+  padding: 0;
+}
+
+.upload-list-panel .panel-table.partlist-file-table td.action-cell .btn-remove {
+  display: block;
+  margin: 6px auto 0;
+}
+
+@media (max-width: 900px) {
+  .upload-list-panel .panel-table.partlist-file-table {
+    min-width: 760px;
+  }
+}
+
+
+/* ---------- Partlist: samakan struktur tabel dengan tabel File Finish Good ---------- */
+.upload-list-panel .panel-table.partlist-file-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.upload-list-panel .panel-table.partlist-file-table th,
+.upload-list-panel .panel-table.partlist-file-table td {
+  box-sizing: border-box;
+  padding: 10px 12px;
+  vertical-align: middle;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+/* No | Nama File | Dikirim oleh | Divisi | Tanggal | Status | Download | Aksi */
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(1),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(1) { width: 5%; text-align: center; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(2),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(2) { width: 27%; text-align: left; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(3),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(3) { width: 14%; text-align: left; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(4),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(4) { width: 9%; text-align: center; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(5),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(5) { width: 13%; text-align: center; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(6),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(6) { width: 12%; text-align: center; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(7),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(7) { width: 10%; text-align: center; }
+.upload-list-panel .panel-table.partlist-file-table th:nth-child(8),
+.upload-list-panel .panel-table.partlist-file-table td:nth-child(8) { width: 10%; text-align: center; }
+
+.upload-list-panel .panel-table.partlist-file-table th {
+  white-space: nowrap;
+}
+
+.upload-list-panel .panel-table.partlist-file-table td.action-cell {
+  display: table-cell;
+  width: 10%;
+  text-align: center;
+  vertical-align: middle;
+  padding: 10px 6px;
+}
+
+.upload-list-panel .panel-table.partlist-file-table td.action-cell > .inline-form {
+  margin: 5px auto;
+  padding: 0;
+}
+
+.upload-list-panel .panel-table.partlist-file-table td.action-cell .btn-remove {
+  display: block;
+  margin: 5px auto 0;
+}
+
+@media (max-width: 900px) {
+  .upload-list-panel .panel-table.partlist-file-table {
+    min-width: 900px;
+  }
+}
+
+
+/* =====================================================
+   Upload dokumen Partlist - samakan dengan File Finish Good
+   Header tidak boleh memotong kata di tengah.
+   ===================================================== */
+.upload-list-panel:has(.partlist-upload-table) {
+  max-width: 1450px;
+  overflow-x: auto;
+}
+
+.upload-list-panel .panel-table.partlist-upload-table {
+  width: 100%;
+  min-width: 1400px;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.upload-list-panel .panel-table.partlist-upload-table th,
+.upload-list-panel .panel-table.partlist-upload-table td {
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.upload-list-panel .panel-table.partlist-upload-table th {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  padding: 12px 10px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* No | Nama File | Customer | Model | Partnumber | Dikirim oleh |
+   Tanggal | Status | Download | Aksi */
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(1),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(1) { width: 5%; text-align:center; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(2),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(2) { width: 23%; text-align:left; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(3),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(3) { width: 10%; text-align:left; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(4),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(4) { width: 8%; text-align:center; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(5),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(5) { width: 9%; text-align:center; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(6),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(6) { width: 11%; text-align:center; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(7),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(7) { width: 10%; text-align:center; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(8),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(8) { width: 9%; text-align:center; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(9),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(9) { width: 8%; text-align:center; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(10),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(10) { width: 7%; text-align:center; }
+
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(2) {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(3),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(4),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(5),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(6),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(7),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(8),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(9),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(10) {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(10) {
+  padding: 10px 8px;
+}
+
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(10) .inline-form {
+  margin: 5px auto;
+}
+
+@media (max-width: 900px) {
+  .upload-list-panel .panel-table.partlist-upload-table {
+    min-width: 1400px;
+  }
+}
+
+/* =====================================================
+   PARTLIST - HEADER BENAR-BENAR TIDAK BOLEH TURUN
+   ===================================================== */
+.upload-list-panel .panel-table.partlist-upload-table {
+  width: 100%;
+  min-width: 1450px;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.upload-list-panel .panel-table.partlist-upload-table th {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  padding: 14px 12px !important;
+  line-height: 1.2 !important;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.upload-list-panel .panel-table.partlist-upload-table th .nowrap-header {
+  display: inline-block;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+}
+
+.upload-list-panel .panel-table.partlist-upload-table td {
+  vertical-align: middle;
+}
+
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(1),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(1) { width: 5% !important; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(2),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(2) { width: 25% !important; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(3),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(3) { width: 12% !important; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(4),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(4) { width: 9% !important; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(5),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(5) { width: 11% !important; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(6),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(6) { width: 12% !important; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(7),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(7) { width: 10% !important; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(8),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(8) { width: 9% !important; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(9),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(9) { width: 10% !important; }
+.upload-list-panel .panel-table.partlist-upload-table th:nth-child(10),
+.upload-list-panel .panel-table.partlist-upload-table td:nth-child(10) { width: 7% !important; }
+
+@media (max-width: 900px) {
+  .upload-list-panel:has(.partlist-upload-table) { overflow-x: auto; }
+  .upload-list-panel .panel-table.partlist-upload-table { min-width: 1450px; }
+}
+
+/* =====================================================
+   FINAL - SEMUA TABEL DOKUMEN (REDRAW / DRAWING REVIEW / PARTLIST)
+   Header tidak boleh pecah/terpotong ke bawah.
+   Ketiga tabel memakai ukuran dan pembagian kolom yang konsisten.
+   ===================================================== */
+.upload-list-panel {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.upload-list-panel .panel-table.upload-file-table {
+  width: 100%;
+  min-width: 1300px;
+  table-layout: fixed;
+}
+
+.upload-list-panel .panel-table.upload-file-table th {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  text-align: center;
+  vertical-align: middle;
+  padding: 12px 10px;
+  line-height: 1.2;
+}
+
+.upload-list-panel .panel-table.upload-file-table th .nowrap-header {
+  display: inline-block;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+}
+
+/* Semua 3 tabel: No | Nama File | Customer | Model | Partnumber |
+   Dikirim oleh | Tanggal | Status | Download | Aksi */
+.upload-list-panel .panel-table.upload-file-table th:nth-child(1),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(1) { width: 5% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(2),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(2) { width: 24% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(3),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(3) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(4),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(4) { width: 8% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(5),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(5) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(6),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(6) { width: 11% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(7),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(7) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(8),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(8) { width: 9% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(9),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9) { width: 7% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(10),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) { width: 6% !important; }
+
+/* Isi tabel boleh membungkus, hanya HEADER yang wajib satu baris. */
+.upload-list-panel .panel-table.upload-file-table td {
+  vertical-align: middle;
+}
+
+/* Hapus override Partlist lama yang membuat tabel terlalu sempit secara visual. */
+.upload-list-panel .panel-table.partlist-upload-table {
+  min-width: 1300px;
+}
+
+/* =====================================================
+   FINAL TABLE DOCUMENT - LEBIH LEGA & RAPI
+   Redraw / Drawing Review / Partlist
+   ===================================================== */
+.upload-list-panel {
+  width: 100%;
+  max-width: 1600px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.upload-list-panel .panel-table.upload-file-table {
+  width: 100%;
+  min-width: 1600px;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.upload-list-panel .panel-table.upload-file-table th {
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  padding: 14px 12px !important;
+  text-align: center;
+  vertical-align: middle;
+  line-height: 1.2 !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table th .nowrap-header {
+  display: inline-block !important;
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+}
+
+/* No | Nama File | Customer | Model | Partnumber | Dikirim oleh |
+   Tanggal | Status | Download | Aksi */
+.upload-list-panel .panel-table.upload-file-table th:nth-child(1),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(1) { width: 4% !important; text-align:center; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(2),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(2) { width: 22% !important; text-align:left; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(3),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(3) { width: 9% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(4),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(4) { width: 8% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(5),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(5) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(6),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(6) { width: 11% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(7),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(7) { width: 9% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(8),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(8) { width: 9% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(9),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9) { width: 8% !important; text-align:center; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(10),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) { width: 10% !important; text-align:center; }
+
+/* Isi tetap boleh membungkus, tetapi tombol jangan pernah terpotong. */
+.upload-list-panel .panel-table.upload-file-table td {
+  vertical-align: middle;
+}
+
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9) .link-btn,
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .btn-approve,
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .btn-unapprove,
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .btn-remove {
+  white-space: nowrap !important;
+  display: inline-block;
+}
+
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .inline-form {
+  display: block;
+  margin: 4px auto;
+  width: max-content;
+}
+
+@media (max-width: 900px) {
+  .upload-list-panel .panel-table.upload-file-table {
+    min-width: 1600px;
+  }
+}
+
+/* =====================================================
+   FINAL SPACING - SEMUA TABEL DOKUMEN
+   Header tetap satu baris, kolom dibuat lebih proporsional.
+   ===================================================== */
+.upload-list-panel .panel-table.upload-file-table {
+  min-width: 1750px !important;
+  width: 1750px !important;
+  max-width: none !important;
+  table-layout: fixed !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table th,
+.upload-list-panel .panel-table.upload-file-table th .nowrap-header {
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  overflow: visible !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table th {
+  padding: 14px 12px !important;
+  height: 58px;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+/* Proporsi kolom: nama file sedikit diperkecil agar kolom lain lega */
+.upload-list-panel .panel-table.upload-file-table th:nth-child(1),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(1) { width: 4% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(2),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(2) { width: 20% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(3),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(3) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(4),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(4) { width: 8% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(5),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(5) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(6),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(6) { width: 11% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(7),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(7) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(8),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(8) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(9),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9) { width: 9% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(10),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) { width: 8% !important; }
+
+.upload-list-panel .panel-table.upload-file-table td {
+  vertical-align: middle !important;
+  padding: 12px 14px !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) {
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-align: center !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9) .link-btn,
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .btn-approve,
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .btn-unapprove,
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .btn-remove {
+  white-space: nowrap !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .inline-form {
+  width: max-content !important;
+  margin: 4px auto !important;
+}
+
+@media (max-width: 900px) {
+  .upload-list-panel .panel-table.upload-file-table {
+    min-width: 1750px !important;
+    width: 1750px !important;
+  }
+}
+
+/* =====================================================
+   FINAL LAYOUT - POSISI TABEL DOKUMEN
+   Redraw / Drawing Review / Partlist
+   Mengikuti layout desain contoh: kolom proporsional,
+   header tidak pecah, tombol punya ruang.
+   ===================================================== */
+.upload-list-panel .panel-table.upload-file-table {
+  width: 1900px !important;
+  min-width: 1900px !important;
+  max-width: none !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table th {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+  height: 60px !important;
+  padding: 12px 14px !important;
+  line-height: 1.15 !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+/* No | Nama File | Customer | Model | Partnumber | Dikirim oleh |
+   Tanggal | Status | Download | Aksi */
+.upload-list-panel .panel-table.upload-file-table th:nth-child(1),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(1) { width: 4% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(2),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(2) { width: 20% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(3),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(3) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(4),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(4) { width: 8% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(5),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(5) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(6),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(6) { width: 11% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(7),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(7) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(8),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(8) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(9),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9) { width: 9% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(10),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) { width: 8% !important; }
+
+.upload-list-panel .panel-table.upload-file-table td {
+  vertical-align: middle !important;
+  padding: 12px 14px !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) {
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-align: center !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9) .link-btn,
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .btn-approve,
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .btn-unapprove,
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .btn-remove {
+  white-space: nowrap !important;
+  display: inline-block !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .inline-form {
+  width: max-content !important;
+  margin: 4px auto !important;
+}
+
+@media (max-width: 1900px) {
+  .upload-list-panel .panel-table.upload-file-table {
+    width: 1900px !important;
+    min-width: 1900px !important;
+  }
+}
+
+/* =====================================================
+   FINAL COMPACT DOCUMENT TABLES
+   Semua tabel dokumen: Redraw / Drawing Review / Partlist
+   Lebar mengikuti panel, tidak lagi dipaksa 1900px.
+   ===================================================== */
+.upload-list-panel {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table th {
+  height: 54px !important;
+  padding: 9px 8px !important;
+  font-size: 14px !important;
+  line-height: 1.15 !important;
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table td {
+  padding: 10px 9px !important;
+  font-size: 14px !important;
+  vertical-align: middle !important;
+}
+
+/* Proporsi compact: Nama File diperkecil agar kolom lain tetap lega. */
+.upload-list-panel .panel-table.upload-file-table th:nth-child(1),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(1) { width: 5% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(2),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(2) { width: 18% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(3),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(3) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(4),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(4) { width: 8% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(5),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(5) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(6),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(6) { width: 11% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(7),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(7) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(8),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(8) { width: 10% !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(9),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9) { width: 9% !important; text-align: center !important; }
+.upload-list-panel .panel-table.upload-file-table th:nth-child(10),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) { width: 9% !important; text-align: center !important; }
+
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9),
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) {
+  white-space: nowrap !important;
+  overflow: visible !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table td:nth-child(9) .link-btn,
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .btn-approve,
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .btn-unapprove,
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .btn-remove {
+  font-size: 12px !important;
+  white-space: nowrap !important;
+}
+
+.upload-list-panel .panel-table.upload-file-table td:nth-child(10) .inline-form {
+  width: max-content !important;
+  margin: 3px auto !important;
+}
+
+@media (max-width: 1250px) {
+  .upload-list-panel .panel-table.upload-file-table th {
+    font-size: 13px !important;
+    padding: 8px 6px !important;
+  }
+  .upload-list-panel .panel-table.upload-file-table td {
+    font-size: 13px !important;
+    padding: 9px 6px !important;
+  }
+}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Detail RFQ - {{ model_name }}{% endblock %}
+{% block content %}
+
+<div class="panel wide-panel dashboard-rfq-list">
+  <div class="panel-header">
+    Detail RFQ - {{ customer.name }} - {{ model_name }} ({{ year }})
+  </div>
+
+  <div class="dashboard-rfq-toolbar">
+    <a class="global-back-btn" href="{{ url_for('dashboard_rfqs', status=status, year=year) }}">
+      &larr; Kembali ke RFQ {{ "Selesai" if status == "close" else "Pending" }}
+    </a>
+  </div>
+
+  <table class="panel-table dashboard-rfq-table">
+    <thead>
+      <tr>
+        <th>No.</th>
+        <th>Kategori</th>
+        <th>P/N</th>
+        <th>Due Date</th>
+        <th>Redraw</th>
+        <th>Drawing Review</th>
+        <th>Partlist</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in parts %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ p.category }}</td>
+        <td>{{ p.part_no }}</td>
+        <td>{{ p.due_date or '-' }}</td>
+
+        <td>
+          <a class="cell-link" href="{{ url_for('redraw_detail', part_id=p.id, tab='redraw') }}">
+            {{ fmt_status(p.redraw_status, p.redraw_done, p.redraw_total) }}
+          </a>
+        </td>
+
+        <td>
+          <a class="cell-link" href="{{ url_for('redraw_detail', part_id=p.id, tab='review') }}">
+            {{ fmt_status(p.review_status, p.review_done, p.review_total) }}
+          </a>
+        </td>
+
+        {% if p.show_partlist %}
+        <td rowspan="{{ p.model_span }}" class="model-partlist-cell">
+          {% if p.model_partlist_id %}
+          <a class="cell-link" href="{{ url_for('model_partlist_detail', model_partlist_id=p.model_partlist_id) }}">
+            {{ fmt_status(p.model_partlist_status, p.model_partlist_done, p.model_partlist_total) }}
+          </a>
+          {% else %}-{% endif %}
+        </td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty-row">Belum ada data.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

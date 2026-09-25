@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Partlist Model{% endblock %}
+{% block content %}
+
+<div class="panel wide-panel">
+  <div class="panel-header">Partlist - {{ customer.name }} - {{ mp.model_name }}</div>
+  <div class="upload-single-body">
+    <div class="upload-info-grid">
+      <div><span>Customer</span><strong>{{ customer.name }}</strong></div>
+      <div><span>Model</span><strong>{{ mp.model_name }}</strong></div>
+      <div><span>Kategori</span><strong>{{ mp.category }}</strong></div>
+      <div><span>Progress</span><strong>{{ fmt_status(mp.partlist_status, mp.partlist_done, mp.partlist_total) }}</strong></div>
+      <div><span>Status</span><strong>{{ mp.partlist_status }}</strong></div>
+    </div>
+
+    {% if can_edit('partlist') %}
+    <form method="POST" enctype="multipart/form-data" class="single-upload-form">
+      <input type="hidden" name="action" value="upload">
+      <label>Upload File Partlist
+        <input type="file" name="file" required accept=".pdf">
+      </label>
+      <button type="submit" class="btn-save">Upload</button>
+    </form>
+    {% else %}
+    <p class="perm-note">Anda hanya dapat melihat data Partlist.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel wide-panel upload-list-panel">
+  <div class="panel-header">File Partlist Model</div>
+  <table class="panel-table partlist-file-table">
+    <thead><tr><th>No.</th><th>Nama File</th><th>Dikirim oleh</th><th>Divisi</th><th>Tanggal</th><th>Status</th><th>Download</th><th>Aksi</th></tr></thead>
+    <tbody>
+      {% for f in files %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ f.original_filename }}</td>
+        <td>{{ f.uploaded_by }}</td>
+        <td>{{ f.divisi }}</td>
+        <td>{{ f.created_at }}</td>
+        <td>{{ f.approval_status }}</td>
+        <td><a href="{{ url_for('download_model_partlist_file', stored_filename=f.stored_filename) }}" class="link-btn">Download</a></td>
+        <td class="action-cell">
+          {% if can_edit('partlist') %}
+            {% if f.approval_status != 'Sudah Approval' %}
+            <form method="POST" class="inline-form"><input type="hidden" name="action" value="approve"><input type="hidden" name="file_id" value="{{ f.id }}"><button class="btn-approve" type="submit">Approve</button></form>
+            {% else %}
+            <form method="POST" class="inline-form"><input type="hidden" name="action" value="unapprove"><input type="hidden" name="file_id" value="{{ f.id }}"><button class="btn-unapprove" type="submit">Batalkan</button></form>
+            {% endif %}
+            <form method="POST" class="inline-form"><input type="hidden" name="action" value="delete"><input type="hidden" name="file_id" value="{{ f.id }}"><button class="btn-remove" type="submit" onclick="return confirm('Hapus file ini?')">Hapus</button></form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="empty-row">Belum ada file Partlist.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<a href="{{ url_for('progress_model', category=mp.category, customer_id=customer.id) }}" class="back-link" onclick="goBack(event)">&larr; Kembali ke Progress</a>
+{% endblock %}

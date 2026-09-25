@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block title %}RFQ Document{% endblock %}
+{% block content %}
+
+<div class="panel wide-panel upload-panel">
+  <div class="panel-header">FILE DOKUMEN UNTUK RFQ (REQUEST FOR QUOTATION)</div>
+  <div class="upload-body">
+    {% if not can_submit %}
+    <p class="perm-note">Hanya divisi Marketing yang dapat mengirim / submit file. Form di bawah ini hanya untuk referensi.</p>
+    {% endif %}
+    <form method="POST" enctype="multipart/form-data" class="upload-form">
+      <div class="submit-layout">
+
+        <div class="checklist-col">
+          <table class="checklist-table">
+            <thead>
+              <tr><th>NO.</th><th>Input Data untuk RFQ</th></tr>
+            </thead>
+            <tbody>
+              {% for item in rfq_input_items %}
+              <tr>
+                <td class="chk-no">{{ loop.index }}</td>
+                <td>
+                  <label class="chk-label">
+                    <input type="checkbox" name="items" value="{{ item }}" {% if not can_submit %}disabled{% endif %}>
+                    {{ item }}
+                  </label>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p class="checklist-hint">Centang data yang sudah dilampirkan di dalam file yang dikirim.</p>
+
+          {% if can_submit %}
+          <div class="marketing-note-field">
+            <label for="marketingNote">Note Marketing</label>
+            <textarea
+              id="marketingNote"
+              name="marketing_note"
+              rows="5"
+              placeholder="Tuliskan note atau permintaan khusus dari Marketing untuk RFQ ini..."
+            ></textarea>
+
+            <small class="marketing-note-hint">
+              Note ini akan langsung dikirim melalui email ke Engineering saat file RFQ dikirim.
+            </small>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="form-col">
+          <label>File
+            <input type="file" name="file" {% if can_submit %}required{% else %}disabled{% endif %} accept=".zip">
+          </label>
+          <label>Customer
+            <input type="text" name="customer" list="customer-list" placeholder="Ex. PT A" {% if not can_submit %}disabled{% endif %}>
+            <datalist id="customer-list">
+              {% for c in customers %}<option value="{{ c.name }}">{% endfor %}
+            </datalist>
+          </label>
+          <label>Model
+            <input type="text" name="model_name" placeholder="Ex. Model A" {% if not can_submit %}disabled{% endif %} required>
+          </label>
+          <label>Partnumber
+            <input type="text" name="partnumber" placeholder="Ex. PN-001" {% if not can_submit %}disabled{% endif %} required>
+          </label>
+          <label>Kategori Divisi
+            <select name="category" {% if not can_submit %}disabled{% endif %}>
+              {% for cat in ['Chasis', 'Nylon', 'Brazing'] %}
+              <option value="{{ cat }}">{{ cat }}</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <div class="auto-rfq-box">
+            <div class="auto-rfq-row">
+              <span>Kategori Kondisi</span>
+              <strong id="autoCondition">-</strong>
+            </div>
+            <div class="auto-rfq-row">
+              <span>Standard Pengerjaan</span>
+              <strong id="autoHours">-</strong>
+            </div>
+            <div class="auto-rfq-row">
+              <span>Due Date Otomatis</span>
+              <strong id="autoDueDate">-</strong>
+            </div>
+            <div id="autoConditionNote" class="auto-rfq-note">Centang checklist sesuai dokumen yang benar-benar dikirim. Kondisi dan Due Date akan ditentukan otomatis dari jadwal standar.</div>
+          </div>
+
+          {% if can_submit %}
+          <button type="submit" class="btn-save">Kirim File</button>
+          {% endif %}
+        </div>
+
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="panel wide-panel ref-panel" style="margin-top:20px;">
+  <div class="panel-header">STANDARD PENGERJAAN RFQ PER-PARTNUMBER</div>
+  <div class="ref-body">
+    <img src="{{ url_for('static', filename='img/rfq-kondisi-jadwal.png') }}" alt="Data kondisi input untuk RFQ" class="ref-image">
+    <p class="ref-caption">Acuan kelengkapan data &amp; estimasi waktu (jam) berdasarkan kondisi A&ndash;G.</p>
+  </div>
+</div>
+<div class="panel wide-panel" style="margin-top:20px;"> 
+  <div class="panel-header">FILE DOKUMEN UNTUK RFQ (REQUEST FOR QUOTATION)</div> 
+
+  <table class="panel-table"> 
+    <thead> 
+      <tr>
+        <th>No.</th>
+        <th>Jenis File</th>
+        <th>Kondisi</th>
+        <th>Due Date</th>
+        <th>Customer</th>
+        <th>Model</th>
+        <th>Partnumber</th>
+        <th>PIC Marketing</th>
+        <th>Tanggal</th>
+        <th>Download File</th>
+        <th class="note-col">Note</th>
+      </tr>
+    </thead> 
+
+    <tbody>
+  {% for s in submissions %}
+  <tr>
+    <td>{{ loop.index }}</td>
+
+    <td>
+      {% if s.included_items %}
+        {{ s.included_items }}
+      {% else %}
+        {{ s.original_filename }}
+      {% endif %}
+    </td>
+    <td class="condition-cell">{{ 'Kondisi ' ~ s.kondisi if s.kondisi else '-' }}</td>
+    <td>{{ s.due_date or 'Ditentukan Management' if s.kondisi in ['F','G'] else (s.due_date or '-') }}</td>
+
+    <td>{{ s.customer or '-' }}</td>
+    <td>{{ s.model_name or '-' }}</td>
+    <td>{{ s.partnumber or '-' }}</td>
+    <td>{{ s.uploaded_by }}</td>
+    <td>{{ s.created_at }}</td>
+
+    <td class="download-cell">
+      <div class="action-cell">
+        <a href="{{ url_for('download_submission', stored_filename=s.stored_filename) }}"
+           class="link-btn">
+          Download
+        </a>
+
+        {% if can_submit %}
+        <form method="POST"
+              action="{{ url_for('delete_submission', submission_id=s.id) }}"
+              style="display:inline">
+          <button type="submit"
+                  class="btn-remove"
+                  onclick="return confirm('Hapus file ini?')">
+            Hapus
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </td>
+
+    <td class="note-cell">
+      {% if s.marketing_note %}
+      <div class="note-cell-inner">{{ s.marketing_note }}</div>
+      {% if s.note_target_divisions %}
+      <div class="note-recipient">Dikirim ke: {{ s.note_target_divisions }}</div>
+      {% endif %}
+      {% else %}
+      -
+      {% endif %}
+    </td>
+  </tr>
+
+  {% else %}
+  <tr>
+    <td colspan="11" class="empty-row">
+      Belum ada file yang dikirim.
+    </td>
+  </tr>
+  {% endfor %}
+</tbody>
+  </table> 
+</div>
+    
+
+
+<script>
+(function () {
+  const schedule = {{ rfq_condition_schedule | tojson }};
+  const checkboxes = Array.from(document.querySelectorAll('input[name="items"]'));
+  const conditionEl = document.getElementById('autoCondition');
+  const hoursEl = document.getElementById('autoHours');
+  const dueEl = document.getElementById('autoDueDate');
+  const noteEl = document.getElementById('autoConditionNote');
+  const form = document.querySelector('.upload-form');
+  if (!conditionEl || !hoursEl || !dueEl) return;
+
+  function formatDate(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${d}-${m}-${y}`;
+  }
+
+  function updateAutoSchedule() {
+    const OPTIONAL_ITEMS = new Set([
+  'Special Characteristic (Jika ada)'
+]);
+
+const selected = new Set(
+  checkboxes
+    .filter(cb => cb.checked)
+    .map(cb => cb.value)
+    .filter(item => !OPTIONAL_ITEMS.has(item))
+);
+
+const match = schedule.find(row => {
+  const standardItems = row.items.filter(
+    item => !OPTIONAL_ITEMS.has(item)
+  );
+
+  return standardItems.length === selected.size &&
+         standardItems.every(item => selected.has(item));
+});
+
+    if (!match) {
+      conditionEl.textContent = '-';
+      hoursEl.textContent = '-';
+      dueEl.textContent = '-';
+      noteEl.textContent = selected.size
+        ? 'Kombinasi checklist belum sesuai kondisi A-G pada jadwal. Sesuaikan centang dokumen.'
+        : 'Centang checklist sesuai dokumen yang benar-benar dikirim.';
+      noteEl.classList.remove('is-valid');
+      return;
+    }
+
+    conditionEl.textContent = 'Kondisi ' + match.condition;
+    if (match.hours === null) {
+      hoursEl.textContent = 'Based on Discussion & Judgement Management';
+      dueEl.textContent = 'Ditentukan Management';
+      noteEl.textContent = 'Kondisi ' + match.condition + ' tidak memiliki durasi tetap pada standar. Due Date ditentukan berdasarkan discussion & judgement Management.';
+    } else {
+      hoursEl.textContent = match.hours + ' jam';
+      const due = new Date();
+      due.setHours(due.getHours() + match.hours);
+      dueEl.textContent = formatDate(due);
+      noteEl.textContent = 'Due Date dihitung otomatis dari waktu pengiriman + ' + match.hours + ' jam sesuai standard pengerjaan per 1 item.';
+    }
+    noteEl.classList.add('is-valid');
+  }
+
+  checkboxes.forEach(cb => cb.addEventListener('change', updateAutoSchedule));
+  if (form) {
+    form.addEventListener('submit', function (event) {
+      const OPTIONAL_ITEMS = new Set([
+  'Special Characteristic (Jika ada)'
+]);
+
+const selected = new Set(
+  checkboxes
+    .filter(cb => cb.checked)
+    .map(cb => cb.value)
+    .filter(item => !OPTIONAL_ITEMS.has(item))
+);
+
+const match = schedule.find(row => {
+  const standardItems = row.items.filter(
+    item => !OPTIONAL_ITEMS.has(item)
+  );
+
+  return standardItems.length === selected.size &&
+         standardItems.every(item => selected.has(item));
+});
+      if (!match) {
+        event.preventDefault();
+        alert('Checklist belum sesuai dengan kondisi A-G pada jadwal RFQ.');
+      }
+    });
+  }
+  updateAutoSchedule();
+})();
+</script>
+{% endblock %}

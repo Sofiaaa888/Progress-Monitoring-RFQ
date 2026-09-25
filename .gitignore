@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Local secrets
+.env
+
+# Local uploads
+uploads/*
+!uploads/.gitkeep
+
+# Local SQLite backup (MySQL is the active database)
+*.db

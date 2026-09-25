@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}RFQ {{ "Selesai" if status == "close" else "Pending" }} {{ year }}{% endblock %}
+{% block content %}
+<div class="panel wide-panel dashboard-rfq-list">
+  <div class="panel-header">
+    RFQ {{ "Selesai" if status == "close" else "Pending" }} - {{ year }}
+  </div>
+
+  <div class="dashboard-rfq-toolbar">
+    <a class="global-back-btn" href="{{ url_for('dashboard', year=year) }}">← Kembali ke Dashboard</a>
+    <span>Total: <strong>{{ rfqs|length }} RFQ</strong></span>
+  </div>
+
+  <table class="panel-table dashboard-rfq-table">
+    <thead>
+      <tr>
+        <th>No</th>
+        <th>Customer</th>
+        <th>Model</th>
+        <th>Category</th>
+        <th>Part Number</th>
+        <th>Progress</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for rfq in rfqs %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ rfq.customer }}</td>
+        <td>{{ rfq.model_name }}</td>
+        <td>{{ rfq.categories }}</td>
+        <td>{{ rfq.total_parts }}</td>
+        <td><span class="rfq-status-pill {{ 'status-close' if status == 'close' else 'status-pending' }}">
+          {{ "Close" if status == "close" else (rfq.completed_parts|string + "/" + rfq.total_parts|string) }}
+        </span></td>
+        <td>
+          <a class="link-btn"
+             href="{{ url_for('dashboard_rfq_model_detail', customer_id=rfq.customer_id, model_name=rfq.model_name, year=rfq.year, status=status) }}">
+            Lihat Detail
+          </a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty-row">Tidak ada RFQ {{ "selesai" if status == "close" else "pending" }} pada tahun {{ year }}.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login - Monitoring RFQ</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-body" style="background-image:url('{{ url_for('static', filename='img/sanoh-bg.jpeg') }}');">
+  <div class="login-overlay">
+    <div class="login-box">
+      <img src="{{ url_for('static', filename='img/sanoh-logo.png') }}" class="login-logo" alt="Sanoh">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('login') }}">
+        <div class="login-field">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+          <input type="text" name="username" placeholder="Username" required autofocus>
+        </div>
+        <div class="login-field">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/></svg>
+          <input type="password" name="password" placeholder="Password" required>
+        </div>
+        <div class="login-field">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          <select name="divisi" required>
+            <option value="" disabled selected>Divisi</option>
+            {% for d in divisions %}
+              <option value="{{ d }}">{{ d }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn-sign">Sign</button>
+      </form>

@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% block title %}Detail Part{% endblock %}
+{% block content %}
+<div class="detail-grid">
+  <div class="detail-left">
+    <div class="breadcrumb">{{ customer.name }} &rsaquo; {{ part.model_name }} &rsaquo; Part {{ part.part_no }} &rsaquo; {{ part.category }}</div>
+
+    <div class="tabs small-tabs">
+      <a href="#tab-redraw" class="tab {% if initial_tab=='redraw' %}active{% endif %}" onclick="showTab(event,'tab-redraw')">Redraw</a>
+      <a href="#tab-review" class="tab {% if initial_tab=='review' %}active{% endif %}" onclick="showTab(event,'tab-review')">Drawing Review</a>
+      <a href="#tab-partlist" class="tab {% if initial_tab=='partlist' %}active{% endif %}" onclick="showTab(event,'tab-partlist')">Partlist</a>
+    </div>
+
+    <div id="tab-redraw" class="tab-panel" style="display:{{ 'block' if initial_tab=='redraw' else 'none' }}">
+      <form method="POST">
+        <input type="hidden" name="action" value="save_redraw">
+        <input type="hidden" name="tab" value="redraw">
+        <div class="redraw-box">
+          <div class="redraw-title">Redraw</div>
+          <table class="redraw-table">
+            <tr><td class="rlabel">Finish Good (Checking Fixture)</td><td><input class="qty-input" type="number" min="0" name="finish_good" value="{{ part.finish_good if (part.finish_good|string).isdigit() else 0 }}" {% if not can_edit('redraw') %}disabled{% endif %}></td></tr>
+            <tr><td class="rlabel">Komponen</td><td><input class="qty-input" type="number" min="0" name="komponen" value="{{ part.komponen if (part.komponen|string).isdigit() else 0 }}" {% if not can_edit('redraw') %}disabled{% endif %}></td></tr>
+            <tr><td class="rlabel">Drawing Tooling (Hasami &amp; Go No Go)</td><td><input class="qty-input" type="number" min="0" name="drawing_tooling" value="{{ part.drawing_tooling if (part.drawing_tooling|string).isdigit() else 0 }}" {% if not can_edit('redraw') %}disabled{% endif %}></td></tr>
+            <tr><td class="rlabel">Drawing Pipa</td><td><input class="qty-input" type="number" min="0" name="drawing_pipa" value="{{ part.drawing_pipa if (part.drawing_pipa|string).isdigit() else 0 }}" {% if not can_edit('redraw') %}disabled{% endif %}></td></tr>
+          </table>
+          <div class="redraw-progress-summary">
+            <span>Progres Redraw:</span>
+            <strong>{{ part.redraw_done }}/<span id="redraw-total-live">{{ part.redraw_total }}</span></strong>
+            <span class="status-pill">{{ part.redraw_status }}</span>
+          </div>
+          {% if can_edit('redraw') %}<button type="submit" class="btn-save">Save Kebutuhan</button>{% else %}<p class="perm-note">Tidak memiliki akses untuk mengubah Redraw.</p>{% endif %}
+        </div>
+      </form>
+
+      <div class="redraw-upload-doc-grid">
+        <div class="redraw-box upload-pages-box">
+          <div class="redraw-title">Upload File Redraw</div>
+          <p class="upload-help">Pilih jenis dokumen.</p>
+          <div class="upload-page-links">
+            <a class="upload-page-link" href="{{ url_for('redraw_upload_page', part_id=part.id, progress_type='Finish Good', month=request.args.get('month','')) }}">Finish Good</a>
+            <a class="upload-page-link" href="{{ url_for('redraw_upload_page', part_id=part.id, progress_type='Komponen', month=request.args.get('month','')) }}">Komponen</a>
+            <a class="upload-page-link" href="{{ url_for('redraw_upload_page', part_id=part.id, progress_type='Drawing Tooling', month=request.args.get('month','')) }}">Drawing Tooling</a>
+            <a class="upload-page-link" href="{{ url_for('redraw_upload_page', part_id=part.id, progress_type='Drawing Pipa', month=request.args.get('month','')) }}">Drawing Pipa</a>
+          </div>
+        </div>
+
+        <div class="redraw-box doc-list-box">
+        <div class="redraw-title">Dokumen Redraw</div>
+        {% set redraw_ptypes = ['Finish Good', 'Komponen', 'Drawing Tooling', 'Drawing Pipa'] %}
+        {% set redraw_all_files = [] %}
+        {% for ptype in redraw_ptypes %}
+          {% set grp = progress_file_groups.get(ptype, {'belum': [], 'sudah': []}) %}
+          {% for f in grp.belum + grp.sudah %}
+            {% set _ = redraw_all_files.append((ptype, f)) %}
+          {% endfor %}
+        {% endfor %}
+        <div class="table-wrap">
+          <table class="progress-file-table">
+            <thead><tr><th>No.</th><th>Nama File</th><th>Kategori</th><th>Status</th><th>Aksi</th></tr></thead>
+            <tbody>
+              {% for ptype, f in redraw_all_files %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td class="fname-cell">{{ f.original_filename }}</td>
+                <td>{{ ptype }}</td>
+                <td><span class="badge {{ 'badge-approved' if f.approval_status == 'Sudah Approval' else 'badge-pending' }}">{{ f.approval_status }}</span></td>
+                <td class="aksi-cell">
+                  <div class="aksi-actions">
+                    <a href="{{ url_for('download_redraw_file', stored_filename=f.stored_filename) }}" class="link-btn">Download</a>
+                    {% if can_edit('redraw') %}
+                    <form method="POST" class="inline-form"><input type="hidden" name="action" value="{{ 'unapprove_progress_file' if f.approval_status == 'Sudah Approval' else 'approve_progress_file' }}"><input type="hidden" name="file_id" value="{{ f.id }}"><input type="hidden" name="tab" value="redraw"><button class="{{ 'btn-unapprove' if f.approval_status == 'Sudah Approval' else 'btn-approve' }}">{{ 'Batalkan' if f.approval_status == 'Sudah Approval' else 'Approve' }}</button></form>
+                    <form method="POST" class="inline-form" onsubmit="return confirm('Hapus file ini?')"><input type="hidden" name="action" value="delete_progress_file"><input type="hidden" name="file_id" value="{{ f.id }}"><input type="hidden" name="tab" value="redraw"><button class="btn-remove">Hapus</button></form>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="5" class="file-empty">Belum ada file Redraw yang diupload.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-review" class="tab-panel" style="display:{{ 'block' if initial_tab=='review' else 'none' }}">
+      <form method="POST">
+        <input type="hidden" name="action" value="save_review">
+        <input type="hidden" name="tab" value="review">
+        <div class="redraw-box">
+          <div class="redraw-title">Drawing Review</div>
+          <div class="redraw-progress-summary">
+  <span>Progres Drawing Review:</span>
+
+  <strong>
+    {{ part.review_done }}/1
+  </strong>
+
+  <span class="status-pill">
+    {{ 'Close' if part.review_done >= 1 else 'Pending' }}
+  </span>
+</div>
+          {% if can_edit('review') %}<button type="submit" class="btn-save">Save</button>{% else %}<p class="perm-note">Tabel Drawing Review hanya bisa di-update oleh divisi Engineer.</p>{% endif %}
+          <div class="redraw-box upload-pages-box" style="margin-top:16px;">
+            <div class="redraw-title">Upload File Drawing Review</div>
+            <p class="upload-help">Upload dokumen Drawing Review.</p>
+            {% if can_edit('review') %}<a class="upload-page-link" href="{{ url_for('redraw_upload_page', part_id=part.id, progress_type='Drawing Review', month=request.args.get('month','')) }}">Upload Drawing Review</a>{% endif %}
+          </div>
+
+          {% set grp = progress_file_groups.get('Drawing Review', {'belum': [], 'sudah': []}) %}
+          {% set all_files = grp.belum + grp.sudah %}
+          <div class="file-section" style="margin-top:16px;">
+            <div class="file-section-title">Dokumen Drawing Review</div>
+            <div class="table-wrap">
+              <table class="progress-file-table">
+                <thead><tr><th>No.</th><th>Nama File</th><th>Status</th><th>Aksi</th></tr></thead>
+                <tbody>
+                  {% for f in all_files %}
+                  <tr>
+                    <td>{{ loop.index }}</td>
+                    <td class="fname-cell">{{ f.original_filename }}</td>
+                    <td><span class="badge {{ 'badge-approved' if f.approval_status == 'Sudah Approval' else 'badge-pending' }}">{{ f.approval_status }}</span></td>
+                    <td class="aksi-cell">
+                      <div class="aksi-actions">
+                        <a href="{{ url_for('download_redraw_file', stored_filename=f.stored_filename) }}" class="link-btn">Download</a>
+                        {% if can_edit('review') %}
+                        <form method="POST" class="inline-form"><input type="hidden" name="action" value="{{ 'unapprove_progress_file' if f.approval_status == 'Sudah Approval' else 'approve_progress_file' }}"><input type="hidden" name="file_id" value="{{ f.id }}"><input type="hidden" name="tab" value="review"><button class="{{ 'btn-unapprove' if f.approval_status == 'Sudah Approval' else 'btn-approve' }}">{{ 'Batalkan' if f.approval_status == 'Sudah Approval' else 'Approve' }}</button></form>
+                        <form method="POST" class="inline-form" onsubmit="return confirm('Hapus file ini?')"><input type="hidden" name="action" value="delete_progress_file"><input type="hidden" name="file_id" value="{{ f.id }}"><input type="hidden" name="tab" value="review"><button class="btn-remove">Hapus</button></form>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="4" class="file-empty">Belum ada file Drawing Review yang diupload.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div id="tab-partlist" class="tab-panel" style="display:{{ 'block' if initial_tab=='partlist' else 'none' }}">
+      <form method="POST">
+        <input type="hidden" name="action" value="save_partlist">
+        <input type="hidden" name="tab" value="partlist">
+        <div class="redraw-box">
+          <div class="redraw-title">Partlist</div>
+          <div class="redraw-progress-summary">
+  <span>Progres Partlist:</span>
+
+  <strong>
+    {{ part.partlist_done }}/1
+  </strong>
+
+  <span class="status-pill">
+    {{ 'Close' if part.partlist_done >= 1 else 'Pending' }}
+  </span>
+</div>
+
+          {% if can_edit('partlist') %}<button type="submit" class="btn-save">Save</button>{% else %}<p class="perm-note">Tidak memiliki akses untuk mengubah Partlist.</p>{% endif %}
+          <div class="redraw-box upload-pages-box" style="margin-top:16px;">
+            <div class="redraw-title">Upload File Partlist</div>
+            <p class="upload-help">Upload dokumen Partlist.</p>
+            {% if can_edit('partlist') %}<a class="upload-page-link" href="{{ url_for('redraw_upload_page', part_id=part.id, progress_type='Partlist', month=request.args.get('month','')) }}">Upload Partlist</a>{% endif %}
+          </div>
+
+          {% set grp = progress_file_groups.get('Partlist', {'belum': [], 'sudah': []}) %}
+          {% set all_files = grp.belum + grp.sudah %}
+          <div class="file-section" style="margin-top:16px;">
+            <div class="file-section-title">Dokumen Partlist</div>
+            <div class="table-wrap">
+              <table class="progress-file-table">
+                <thead><tr><th>No.</th><th>Nama File</th><th>Status</th><th>Aksi</th></tr></thead>
+                <tbody>
+                  {% for f in all_files %}
+                  <tr>
+                    <td>{{ loop.index }}</td>
+                    <td class="fname-cell">{{ f.original_filename }}</td>
+                    <td><span class="badge {{ 'badge-approved' if f.approval_status == 'Sudah Approval' else 'badge-pending' }}">{{ f.approval_status }}</span></td>
+                    <td class="aksi-cell">
+                      <div class="aksi-actions">
+                        <a href="{{ url_for('download_redraw_file', stored_filename=f.stored_filename) }}" class="link-btn">Download</a>
+                        {% if can_edit('partlist') %}
+                        <form method="POST" class="inline-form"><input type="hidden" name="action" value="{{ 'unapprove_progress_file' if f.approval_status == 'Sudah Approval' else 'approve_progress_file' }}"><input type="hidden" name="file_id" value="{{ f.id }}"><input type="hidden" name="tab" value="partlist"><button class="{{ 'btn-unapprove' if f.approval_status == 'Sudah Approval' else 'btn-approve' }}">{{ 'Batalkan' if f.approval_status == 'Sudah Approval' else 'Approve' }}</button></form>
+                        <form method="POST" class="inline-form" onsubmit="return confirm('Hapus file ini?')"><input type="hidden" name="action" value="delete_progress_file"><input type="hidden" name="file_id" value="{{ f.id }}"><input type="hidden" name="tab" value="partlist"><button class="btn-remove">Hapus</button></form>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr><td colspan="4" class="file-empty">Belum ada file Partlist yang diupload.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="detail-right">
+    <div class="notes-card">
+    {% for d in divisions %}
+    <div class="divisi-card divisi-{{ d|lower }}">
+      <div class="divisi-title">{{ 'Engineering' if d == 'Engineer' else ('Management Note' if d == 'Management' else d) }}</div>
+      <div class="divisi-notes">
+        {% for n in notes_by_divisi.get(d, []) %}
+        <div class="note-item">
+          <div class="note-text">{{ n.text or '(Tidak ada teks)' }}</div>
+          <div class="note-meta">{{ n.author }} &middot; {{ n.created_at }}</div>
+
+          {% if n.recipient_divisions %}
+          <div class="note-recipient">Dikirim ke: {{ n.recipient_divisions }}</div>
+          {% endif %}
+
+          {% if n.attachment_stored_filename %}
+          <div class="note-attachment">
+            <span>📎 {{ n.attachment_filename }}</span>
+            <a href="{{ url_for('download_note_attachment', stored_filename=n.attachment_stored_filename) }}" class="link-btn">Download</a>
+          </div>
+          {% endif %}
+
+          {% if session.get('divisi') == d %}
+          <form method="POST" style="display:inline">
+            <input type="hidden" name="action" value="remove_note">
+            <input type="hidden" name="note_id" value="{{ n.id }}">
+            <button type="submit" class="btn-remove">Remove</button>
+          </form>
+          {% endif %}
+        </div>
+        {% else %}<div class="note-empty">....</div>{% endfor %}
+      </div>
+
+      {% if session.get('divisi') == d %}
+      <form method="POST" class="add-note-form" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="add_note">
+
+        <input
+          type="text"
+          name="text"
+          placeholder="{{ 'Tambah catatan Management...' if d == 'Management' else 'Tambah catatan ' ~ d ~ '...' }}"
+        >
+
+        <div class="note-feedback-row">
+          <label class="note-file-label">
+            📎 File Feedback
+            <input
+              type="file"
+              name="feedback_file"
+              accept=".zip,.rar,.7z,.pdf,.doc,.docx,.xls,.xlsx,.dwg,.jpg,.jpeg,.png"
+            >
+          </label>
+        </div>
+
+        <div class="note-recipient-box">
+          <span class="note-recipient-label">Kirim email ke:</span>
+          <div class="note-recipient-options">
+            {% for target in divisions %}
+              {% if target != session.get('divisi') %}
+              <label>
+                <input type="checkbox" name="recipient_divisions" value="{{ target }}">
+                {{ 'Engineering' if target == 'Engineer' else ('Management' if target == 'Management' else target) }}
+              </label>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+
+        <button type="submit" class="note-send-btn">Kirim Feedback</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  </div>
+
+  <a href="{{ url_for('progress_model', category=part.category, customer_id=part.customer_id) }}"
+     class="back-link">
+    &larr; Kembali ke Progress {{ customer.name }}
+  </a>
+</div>
+<script>
+function updateRedrawSum(){
+  const fields = ['finish_good','komponen','drawing_tooling','drawing_pipa'];
+  let total = 0;
+  fields.forEach(function(name){
+    const el = document.querySelector('[name="'+name+'"]');
+    if (el) total += Math.max(0, parseInt(el.value || '0', 10) || 0);
+  });
+  const totalEl = document.getElementById('redraw-total-live');
+  if (totalEl) totalEl.textContent = total;
+}
+document.addEventListener('DOMContentLoaded', function(){
+  ['finish_good','komponen','drawing_tooling','drawing_pipa'].forEach(function(name){
+    const el = document.querySelector('[name="'+name+'"]');
+    if (el) el.addEventListener('input', updateRedrawSum);
+  });
+  updateRedrawSum();
+});
+function showTab(e, id){
+  e.preventDefault();
+  document.querySelectorAll('.tab-panel').forEach(p=>p.style.display='none');
+  document.querySelectorAll('.small-tabs .tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).style.display='block'; e.currentTarget.classList.add('active');
+}
+</script>
+{% endblock %}

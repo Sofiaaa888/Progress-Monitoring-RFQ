@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="dashboard-grid">
+
+  <div class="dashboard-left">
+    <div class="dashboard-year-title">
+      <span>Total RFQ {{ selected_year }}</span>
+      <form method="get" action="{{ url_for('dashboard') }}" class="year-selector-form">
+        <label for="yearSelect">Tahun</label>
+        <select id="yearSelect" name="year" onchange="this.form.submit()">
+          {% for y in year_options %}
+          <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+
+    <div class="dashboard-left-content">
+      <div class="card month-card">
+        <table class="month-table">
+          <thead>
+            <tr><th>Month</th><th>Qty RFQ (Model)</th></tr>
+          </thead>
+          <tbody>
+            {% for month, qty, status in month_table %}
+            <tr class="month-row status-{{ status }} {% if month == selected_month %}selected{% endif %}" data-month="{{ month }}">
+              <td class="month-name">{{ month }}</td>
+              <td class="qty-cell">{{ qty }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="total-rfq-banner">
+        <div class="total-rfq-item total-rfq-all">
+          <span class="total-rfq-label">Total Seluruh RFQ</span>
+          <span class="total-rfq-value">{{ total_rfq }}</span>
+        </div>
+        <a href="{{ url_for('dashboard_rfqs', status='close', year=selected_year) }}" class="total-rfq-item total-rfq-clickable" title="Lihat seluruh RFQ yang selesai">
+          <span class="total-rfq-label">Total RFQ Selesai</span>
+          <span class="total-rfq-value">{{ total_rfq_selesai }}</span>
+        </a>
+        <a href="{{ url_for('dashboard_rfqs', status='pending', year=selected_year) }}" class="total-rfq-item total-rfq-clickable" title="Lihat seluruh RFQ yang pending">
+          <span class="total-rfq-label">Total RFQ Pending</span>
+          <span class="total-rfq-value">{{ total_rfq_pending }}</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-right">
+    <div id="selectedDashboardTitle" class="selected-dashboard-title">RFQ - {{ selected_month }} {{ selected_year }}</div>
+
+    <div id="categoryPanel" class="category-panel-top">
+      {% include "months.html" %}
+    </div>
+
+    <div class="dashboard-charts-grid">
+      <div class="dashboard-chart-box">
+        <div id="closeChartTitle" class="dashboard-chart-title">Progress RFQ - {{ selected_month }} {{ selected_year }}</div>
+        <div class="chart-wrap chart-wrap-small">
+          <canvas id="closePieChart"></canvas>
+        </div>
+        <div class="chart-total-note">Model yang seluruh progress-nya sudah Close.</div>
+      </div>
+
+      <div class="dashboard-chart-box">
+        <div id="openChartTitle" class="dashboard-chart-title">Progress Pending RFQ - {{ selected_month }} {{ selected_year }}</div>
+        <div class="chart-wrap chart-wrap-small">
+          <canvas id="openPieChart"></canvas>
+        </div>
+        <div class="chart-total-note">Model yang masih memiliki progress belum Close.</div>
+      </div>
+    </div>
+
+    <div class="reminder-box">
+      <div class="reminder-header">Reminder!</div>
+      <div class="reminder-body">
+        <p><a href="{{ url_for('reason', kind='redraw', year=selected_year) }}" class="reminder-link">Redraw Pending : {{ redraw_pending }}</a></p>
+        <p><a href="{{ url_for('reason', kind='review', year=selected_year) }}" class="reminder-link">Drawing Review Pending : {{ review_pending }}</a></p>
+        <p><a href="{{ url_for('reason', kind='partlist', year=selected_year) }}" class="reminder-link">Partlist Pending : {{ partlist_pending }}</a></p>
+        <p class="reminder-months"><strong>Month :</strong> {{ pending_months|join(', ') if pending_months else '-' }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const chartLabels = {{ category_summary | map(attribute='name') | list | tojson }};
+let closeValues = {{ close_chart_values | tojson }};
+let openValues = {{ open_chart_values | tojson }};
+const selectedYear = {{ selected_year|tojson }};
+const categoryColors = ['#f3f176', '#f5a94e', '#b6ea6b'];
+
+function percentLabel(context) {
+  const data = context.dataset.data || [];
+  const total = data.reduce((a, b) => a + b, 0);
+  const value = context.raw || 0;
+  const percent = total ? ((value / total) * 100).toFixed(1) : 0;
+  return context.label + ': ' + value + ' Model (' + percent + '%)';
+}
+
+function createPieChart(canvasId, values) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || typeof Chart === 'undefined') return null;
+  return new Chart(canvas, {
+    type: 'pie',
+    data: {
+      labels: chartLabels,
+      datasets: [{
+        data: values,
+        backgroundColor: categoryColors,
+        borderColor: '#ffffff',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { font: { size: 12, weight: '600' }, boxWidth: 14 }
+        },
+        tooltip: { callbacks: { label: percentLabel } }
+      }
+    }
+  });
+}
+
+const closeChart = createPieChart('closePieChart', closeValues);
+const openChart = createPieChart('openPieChart', openValues);
+
+function updateChart(chart, values) {
+  if (!chart) return;
+  chart.data.datasets[0].data = values;
+  chart.update();
+}
+
+document.querySelectorAll('.month-row').forEach(function(row){
+  row.addEventListener('click', function(){
+    var month = row.getAttribute('data-month');
+
+    var selectedTitle = document.getElementById('selectedDashboardTitle');
+    var closeTitle = document.getElementById('closeChartTitle');
+    var openTitle = document.getElementById('openChartTitle');
+    if (selectedTitle) selectedTitle.textContent = 'RFQ - ' + month + ' ' + selectedYear;
+    if (closeTitle) closeTitle.textContent = 'Progress RFQ - ' + month + ' ' + selectedYear;
+    if (openTitle) openTitle.textContent = 'Progress Pending RFQ - ' + month + ' ' + selectedYear;
+    document.querySelectorAll('.month-row').forEach(function(r){ r.classList.remove('selected'); });
+    row.classList.add('selected');
+
+    fetch('/months/' + encodeURIComponent(month) + '?year=' + encodeURIComponent(selectedYear))
+      .then(function(res){ return res.text(); })
+      .then(function(html){
+        document.getElementById('categoryPanel').innerHTML = html;
+      });
+
+    fetch('/months-chart/' + encodeURIComponent(month) + '?year=' + encodeURIComponent(selectedYear))
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        updateChart(closeChart, data.close);
+        updateChart(openChart, data.open);
+      });
+  });
+});
+</script>
+{% endblock %}

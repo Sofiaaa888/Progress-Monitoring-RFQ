@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Upload {{ progress_type }}{% endblock %}
+{% block content %}
+<div class="breadcrumb">{{ customer.name }} &rsaquo; {{ part.model_name }} &rsaquo; Part {{ part.part_no }} &rsaquo; Redraw</div>
+<div class="panel wide-panel">
+  <div class="panel-header">Upload {{ progress_type }}</div>
+  <div class="upload-single-body">
+    {% if progress_type == 'Drawing Review' %}<p class="upload-help">Drawing Review: maksimal 1 file untuk setiap Partnumber.</p>{% elif progress_type == 'Partlist' %}<p class="upload-help">Partlist: maksimal 1 file untuk setiap Model.</p>{% endif %}
+    <div class="upload-info-grid">
+      <div><span>Customer</span><strong>{{ customer.name }}</strong></div>
+      <div><span>Model</span><strong>{{ part.model_name }}</strong></div>
+      <div><span>Partnumber</span><strong>{{ part.part_no }}</strong></div>
+      <div><span>Kebutuhan</span><strong>{{ required_qty }}</strong></div>
+      <div><span>Approved</span><strong>{{ approved_qty }}/{{ required_qty }}</strong></div>
+    </div>
+    {% if can_edit('review' if progress_type == 'Drawing Review' else ('partlist' if progress_type == 'Partlist' else 'redraw')) %}
+    <form method="POST" action="{{ url_for('redraw_upload_page', part_id=part.id, progress_type=progress_type, month=request.args.get('month', part.month)) }}" enctype="multipart/form-data" class="single-upload-form">
+      <label>File {{ progress_type }}
+        <input type="file" name="file" required accept=".pdf,.zip,.rar,.7z,.doc,.docx,.xls,.xlsx,.dwg,.jpg,.jpeg,.png">
+      </label>
+      <button type="submit" class="btn-save">Upload {{ progress_type }}</button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('redraw_detail', part_id=part.id, tab=tab_name, month=request.args.get('month', part.month)) }}" class="back-link" onclick="goBack(event)">&larr; Kembali ke Detail Redraw</a>
+  </div>
+</div>
+
+<div class="panel wide-panel upload-list-panel">
+  <div class="panel-header">File {{ progress_type }}</div>
+  <table class="panel-table upload-file-table{% if progress_type == 'Partlist' %} partlist-upload-table{% endif %}">
+    {% if progress_type == 'Partlist' %}
+    <colgroup>
+      <col style="width:5%"><col style="width:25%"><col style="width:12%"><col style="width:9%"><col style="width:11%">
+      <col style="width:12%"><col style="width:10%"><col style="width:9%"><col style="width:10%"><col style="width:7%">
+    </colgroup>
+    {% endif %}
+    <thead><tr>
+      <th><span class="nowrap-header">No.</span></th>
+      <th><span class="nowrap-header">Nama File</span></th>
+      <th><span class="nowrap-header">Customer</span></th>
+      <th><span class="nowrap-header">Model</span></th>
+      <th><span class="nowrap-header">Partnumber</span></th>
+      <th><span class="nowrap-header">Dikirim oleh</span></th>
+      <th><span class="nowrap-header">Tanggal</span></th>
+      <th><span class="nowrap-header">Status</span></th>
+      <th><span class="nowrap-header">Download</span></th>
+      <th><span class="nowrap-header">Aksi</span></th>
+    </tr></thead>
+    <tbody>
+      {% for f in files %}
+      <tr>
+        <td>{{ loop.index }}</td><td>{{ f.original_filename }}</td><td>{{ customer.name }}</td><td>{{ part.model_name }}</td><td>{{ part.part_no }}</td><td>{{ f.uploaded_by }}</td><td>{{ f.created_at }}</td>
+        <td>{{ f.approval_status }}</td>
+        <td><a href="{{ url_for('download_redraw_file', stored_filename=f.stored_filename) }}" class="link-btn">Download</a></td>
+        <td>
+          {% if can_edit('review' if progress_type == 'Drawing Review' else ('partlist' if progress_type == 'Partlist' else 'redraw')) %}
+            {% if f.approval_status == 'Belum Approval' %}
+            <form method="POST" action="{{ url_for('redraw_upload_page', part_id=part.id, progress_type=progress_type, month=request.args.get('month', part.month)) }}" class="inline-form"><input type="hidden" name="action" value="approve"><input type="hidden" name="file_id" value="{{ f.id }}"><button class="btn-approve">Approve</button></form>
+            {% else %}
+            <form method="POST" action="{{ url_for('redraw_upload_page', part_id=part.id, progress_type=progress_type, month=request.args.get('month', part.month)) }}" class="inline-form"><input type="hidden" name="action" value="unapprove"><input type="hidden" name="file_id" value="{{ f.id }}"><button class="btn-unapprove">Batalkan</button></form>
+            {% endif %}
+            <form method="POST" action="{{ url_for('redraw_upload_page', part_id=part.id, progress_type=progress_type, month=request.args.get('month', part.month)) }}" class="inline-form"><input type="hidden" name="action" value="delete"><input type="hidden" name="file_id" value="{{ f.id }}"><button class="btn-remove" onclick="return confirm('Hapus file ini?')">Hapus</button></form>
+          {% else %}-{% endif %}
+        </td>
+      </tr>
+      {% else %}<tr><td colspan="10" class="empty-row">Belum ada file yang dikirim.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
