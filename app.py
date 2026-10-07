@@ -7,11 +7,14 @@ from dotenv import load_dotenv
 import uuid
 import smtplib
 from email.message import EmailMessage
+from email.utils import formataddr
 from datetime import datetime
 from functools import wraps
 from flask import (Flask, render_template, request, redirect, url_for,
-                    session, flash, jsonify, g, send_from_directory)
+                    session, flash, jsonify, g, send_from_directory,
+                    has_request_context)
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
@@ -34,46 +37,103 @@ SMTP_FROM = os.getenv("SMTP_FROM", "") or SMTP_USER
 SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "true").lower() == "true"
 EMAIL_NOTIFICATIONS_ENABLED = os.getenv("EMAIL_NOTIFICATIONS_ENABLED", "true").lower() == "true"
 NOTIFY_MANAGEMENT_CC = os.getenv("NOTIFY_MANAGEMENT_CC", "true").lower() == "true"
-DIVISION_GROUP_EMAIL_ENV = {
-    "Marketing": "GROUP_EMAIL_MARKETING",
-    "Engineer": "GROUP_EMAIL_ENGINEERING",
-    "Purchasing": "GROUP_EMAIL_PURCHASING",
-    "Management": "GROUP_EMAIL_MANAGEMENT",
+# Prefix variabel .env untuk akun email tiap grup, mis. GROUP_MARKETING_SMTP_USER
+DIVISION_ENV_PREFIX = {
+    "Marketing": "GROUP_MARKETING",
+    "Engineer": "GROUP_ENGINEERING",
+    "Purchasing": "GROUP_PURCHASING",
+    "Management": "GROUP_MANAGEMENT",
 }
+# Nama grup yang tampil di register & di nama pengirim email.
+GROUP_LABELS = {
+    "Marketing": "Marketing",
+    "Engineer": "Engineering",
+    "Purchasing": "Purchasing",
+    "Management": "Management",
+}
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def get_group_emails(division):
-    """Email grup Outlook untuk satu divisi (dari .env). Boleh lebih dari satu, pisahkan dengan ; atau ,"""
-    env_name = DIVISION_GROUP_EMAIL_ENV.get(division)
-    if not env_name:
-        return []
-    raw = os.getenv(env_name, "")
-    return [a.strip() for a in re.split(r"[;,]", raw) if a.strip()]
+def _env_bool(value, default):
+    return default if value in (None, "") else str(value).lower() == "true"
+
+
+def get_smtp_account(division):
+    """Akun SMTP untuk mengirim atas nama grup `division`.
+    Jika akun grup belum lengkap (user/password/from), dipakai akun sistem.
+    Host/port/starttls yang kosong di akun grup mengikuti akun sistem."""
+    system = {
+        "host": SMTP_HOST, "port": SMTP_PORT, "starttls": SMTP_STARTTLS,
+        "user": SMTP_USER, "password": SMTP_PASSWORD, "from": SMTP_FROM,
+        "label": "akun sistem",
+    }
+    prefix = DIVISION_ENV_PREFIX.get(division)
+    if not prefix:
+        return system
+    user = os.getenv(f"{prefix}_SMTP_USER", "").strip()
+    password = os.getenv(f"{prefix}_SMTP_PASSWORD", "")
+    if not user or not password:
+        return system
+    return {
+        "host": os.getenv(f"{prefix}_SMTP_HOST", "").strip() or SMTP_HOST,
+        "port": int(os.getenv(f"{prefix}_SMTP_PORT", "").strip() or SMTP_PORT),
+        "starttls": _env_bool(os.getenv(f"{prefix}_SMTP_STARTTLS"), SMTP_STARTTLS),
+        "user": user, "password": password,
+        "from": os.getenv(f"{prefix}_SMTP_FROM", "").strip() or user,
+        "label": f"akun grup {division}",
+    }
+
+
+def get_group_member_emails(division):
+    """Email semua user yang register di grup (divisi) tersebut."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT email FROM users WHERE divisi=? AND COALESCE(email,'') <> ''",
+        (division,),
+    ).fetchall()
+    emails = []
+    for r in rows:
+        addr = (r["email"] or "").strip()
+        if addr and addr.lower() not in [e.lower() for e in emails]:
+            emails.append(addr)
+    return emails
+
+
 def send_email_notification(subject, body, recipient_divisions, attachment_path=None):
-    """Kirim email ke email grup Outlook masing-masing divisi tujuan."""
+    """Kirim email ke seluruh anggota grup tujuan.
+    Email keluar dari akun grup si pengirim (mis. user Marketing -> akun
+    Marketing), sehingga penerima melihatnya sebagai email dari grup itu.
+    Akun sistem menjadi penjembatan/cadangan: dipakai jika akun grup belum diisi."""
     if not EMAIL_NOTIFICATIONS_ENABLED:
         print("[EMAIL] Notifications disabled.")
         return False
-    if not SMTP_HOST or not SMTP_FROM:
-        print("[EMAIL] SMTP_HOST / SMTP_FROM belum diisi di .env.")
+    actor_group = session.get("divisi") if has_request_context() else None
+    account = get_smtp_account(actor_group)
+    if not account["host"] or not account["from"]:
+        print(f"[EMAIL] SMTP untuk {account['label']} belum diisi di .env.")
         return False
     recipients = []
     for division in (recipient_divisions or []):
-        addresses = get_group_emails(division)
+        addresses = get_group_member_emails(division)
         if not addresses:
-            print(f"[EMAIL] Email grup untuk divisi {division} belum diisi di .env.")
+            print(f"[EMAIL] Belum ada anggota grup {division} dengan email terisi.")
         for address in addresses:
-            if address not in recipients:
+            if address.lower() not in [r.lower() for r in recipients]:
                 recipients.append(address)
     if not recipients:
-        print(f"[EMAIL] Tidak ada email grup yang terisi untuk divisi: {recipient_divisions}")
+        print(f"[EMAIL] Tidak ada penerima untuk grup: {recipient_divisions}")
         return False
     cc = []
-    if NOTIFY_MANAGEMENT_CC and session.get("divisi") != "Management":
-        cc = [a for a in get_group_emails("Management") if a not in recipients]
+    if NOTIFY_MANAGEMENT_CC and actor_group != "Management":
+        taken = [r.lower() for r in recipients]
+        cc = [a for a in get_group_member_emails("Management") if a.lower() not in taken]
+    sender_name = (
+        f"{GROUP_LABELS.get(actor_group, actor_group)} Group - Monitoring RFQ"
+        if actor_group else "Monitoring Progress RFQ"
+    )
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = f"Monitoring Progress RFQ <{SMTP_FROM}>"
+    msg["From"] = formataddr((sender_name, account["from"]))
     msg["To"] = ", ".join(recipients)
     if cc:
         msg["Cc"] = ", ".join(cc)
@@ -96,13 +156,13 @@ def send_email_notification(subject, body, recipient_divisions, attachment_path=
             print(f"[EMAIL] Gagal membaca lampiran: {exc}")
             return False
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
-            if SMTP_STARTTLS:
+        with smtplib.SMTP(account["host"], account["port"], timeout=15) as smtp:
+            if account["starttls"]:
                 smtp.starttls()
-            if SMTP_USER and SMTP_PASSWORD:
-                smtp.login(SMTP_USER, SMTP_PASSWORD)
-            smtp.send_message(msg)
-        print(f"[EMAIL] Sent: {subject} -> To: {recipients} Cc: {cc}")
+            if account["user"] and account["password"]:
+                smtp.login(account["user"], account["password"])
+            smtp.send_message(msg, to_addrs=recipients + cc)
+        print(f"[EMAIL] Sent via {account['label']}: {subject} -> To: {recipients} Cc: {cc}")
         return True
     except Exception as exc:
         print(f"[EMAIL] Gagal mengirim notifikasi: {exc}")
@@ -113,6 +173,8 @@ MONTHS = ["January", "February", "March", "April", "May", "June", "July",
 
 CATEGORIES = ["Chasis", "Nylon", "Brazing"]
 DIVISIONS = ["Marketing", "Engineer", "Purchasing", "Management"]
+JUDGEMENT_TYPES = ["RFQ Customer Baru", "Commodity Baru"]
+JUDGEMENT_DECISIONS = ["Go", "Perlu Diskusi", "No Go"]
 ALLOWED_EXTENSIONS = {"zip", "rar", "7z", "pdf", "doc", "docx",
                       "xls", "xlsx", "dwg", "jpg", "jpeg", "png"}
 
@@ -384,6 +446,33 @@ def init_db():
             divisi VARCHAR(50) NOT NULL,
             author VARCHAR(100) NOT NULL,
             text TEXT,
+            created_at VARCHAR(30) NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS management_judgements (
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            jenis VARCHAR(50) NOT NULL,
+            customer VARCHAR(255) DEFAULT '',
+            commodity VARCHAR(255) DEFAULT '',
+            model_name VARCHAR(255) DEFAULT '',
+            partnumber VARCHAR(100) DEFAULT '',
+            keputusan VARCHAR(50) NOT NULL,
+            catatan TEXT NOT NULL,
+            author VARCHAR(100) NOT NULL,
+            recipient_divisions VARCHAR(255) DEFAULT '',
+            email_sent TINYINT DEFAULT 0,
+            created_at VARCHAR(30) NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS rfq_notes (
+            id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            divisi VARCHAR(50) NOT NULL,
+            author VARCHAR(100) NOT NULL,
+            customer VARCHAR(255) DEFAULT '',
+            model_name VARCHAR(255) DEFAULT '',
+            partnumber VARCHAR(100) DEFAULT '',
+            category VARCHAR(50) DEFAULT '',
+            text TEXT NOT NULL,
+            recipient_divisions VARCHAR(255) DEFAULT '',
+            email_sent TINYINT DEFAULT 0,
             created_at VARCHAR(30) NOT NULL
         );
         CREATE TABLE IF NOT EXISTS redraw_files (
@@ -717,9 +806,9 @@ app.jinja_env.globals.update(can_edit=can_edit, fmt_status=fmt_status)
 
 def other_divisions(actor_division):
     return [d for d in ("Marketing", "Engineer", "Purchasing") if d != actor_division]
-def notify_new_rfq(part, filename, marketing_note=''):
+def notify_new_rfq(part, filename, marketing_note='', recipients=None):
     actor = current_divisi()
-    recipients = ["Engineer"]
+    recipients = recipients or ["Engineer"]
     return send_email_notification(
         f"[Monitoring RFQ] Dokumen RFQ (Request For Quotation) baru - Model {part['model_name']} dengan Partnumber {part['part_no']}",
         f"""Dokumen RFQ baru telah dikirim.
@@ -800,6 +889,36 @@ Informasi selengkapnya silakan cek menu Progress untuk melihat detail.
         ["Marketing", "Purchasing"],
     )
 
+def parse_note_targets(actor_division, always_include=None):
+    """Ambil tujuan note dari form (checkbox `note_targets`). Hanya grup lain
+    yang valid; urutan mengikuti DIVISIONS."""
+    chosen = set(request.form.getlist("note_targets"))
+    if always_include:
+        chosen.add(always_include)
+    return [d for d in DIVISIONS if d in chosen and d != actor_division]
+
+
+def notify_standalone_note(text, recipients, customer="", model_name="", partnumber="", category=""):
+    actor = current_divisi()
+    ref = " - ".join(x for x in (model_name, f"P/N {partnumber}" if partnumber else "") if x)
+    subject = f"[Monitoring RFQ] Note dari {GROUP_LABELS.get(actor, actor)}" + (f" - {ref}" if ref else "")
+    return send_email_notification(
+        subject,
+        f"""Ada Note baru (tanpa pengiriman file) pada Monitoring RFQ.
+
+Dari       : {session.get('username', '-')} ({actor})
+Customer   : {customer or '-'}
+Model      : {model_name or '-'}
+Partnumber : {partnumber or '-'}
+Kategori   : {category or '-'}
+
+Note:
+{text}
+""",
+        recipients,
+    )
+
+
 def notify_note(part, note_text):
     actor = current_divisi()
     recipients = other_divisions(actor)
@@ -825,6 +944,15 @@ def get_customer_name(customer_id):
     return row["name"] if row else "-"
 
 
+def verify_password(stored, given):
+    """Mendukung hash baru dan password lama (plain text) dari data awal."""
+    if not stored:
+        return False
+    if stored.startswith(("scrypt:", "pbkdf2:")):
+        return check_password_hash(stored, given)
+    return stored == given
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -833,16 +961,63 @@ def login():
         divisi = request.form.get("divisi", "")
         db = get_db()
         user = db.execute(
-            "SELECT * FROM users WHERE username=? AND password=? AND divisi=?",
-            (username, password, divisi),
+            "SELECT * FROM users WHERE username=? AND divisi=?",
+            (username, divisi),
         ).fetchone()
-        if user:
+        if user and verify_password(user["password"], password):
+            if not user["password"].startswith(("scrypt:", "pbkdf2:")):
+                db.execute("UPDATE users SET password=? WHERE id=?",
+                           (generate_password_hash(password), user["id"]))
+                db.commit()
             session["username"] = user["username"]
             session["divisi"] = user["divisi"]
             nxt = request.args.get("next") or url_for("dashboard")
             return redirect(nxt)
         flash("Username, password, atau divisi salah.", "error")
-    return render_template("login.html", divisions=DIVISIONS)
+    return render_template("login.html", divisions=DIVISIONS, group_labels=GROUP_LABELS)
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    form = {"username": "", "email": "", "divisi": ""}
+    if request.method == "POST":
+        form["username"] = request.form.get("username", "").strip()
+        form["email"] = request.form.get("email", "").strip()
+        form["divisi"] = request.form.get("divisi", "")
+        password = request.form.get("password", "")
+        confirm = request.form.get("confirm_password", "")
+        db = get_db()
+        error = None
+        if not form["username"] or not password:
+            error = "Username dan password wajib diisi."
+        elif form["divisi"] not in DIVISIONS:
+            error = "Pilih grup user (role) yang valid."
+        elif not EMAIL_RE.match(form["email"]):
+            error = "Format email tidak valid."
+        elif len(password) < 6:
+            error = "Password minimal 6 karakter."
+        elif password != confirm:
+            error = "Konfirmasi password tidak sama."
+        elif db.execute("SELECT 1 FROM users WHERE username=?",
+                        (form["username"],)).fetchone():
+            error = "Username sudah dipakai."
+        elif db.execute("SELECT 1 FROM users WHERE LOWER(email)=LOWER(?)",
+                        (form["email"],)).fetchone():
+            error = "Email sudah terdaftar."
+        if error:
+            flash(error, "error")
+        else:
+            # Role yang dipilih = grup user; otomatis menjadi anggota grup tsb.
+            db.execute(
+                "INSERT INTO users (username, password, divisi, email) VALUES (?,?,?,?)",
+                (form["username"], generate_password_hash(password),
+                 form["divisi"], form["email"]),
+            )
+            db.commit()
+            flash(f"Registrasi berhasil. Anda masuk ke grup {GROUP_LABELS[form['divisi']]}. Silakan login.", "success")
+            return redirect(url_for("login"))
+    return render_template("register.html", divisions=DIVISIONS,
+                           group_labels=GROUP_LABELS, form=form)
 
 
 @app.route("/logout")
@@ -859,6 +1034,78 @@ def profile():
         "SELECT * FROM users WHERE username=? AND divisi=?",
         (session["username"], session["divisi"]),
     ).fetchone()
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        if not EMAIL_RE.match(email):
+            flash("Format email tidak valid.", "error")
+        elif db.execute("SELECT 1 FROM users WHERE LOWER(email)=LOWER(?) AND id<>?",
+                        (email, user["id"])).fetchone():
+            flash("Email sudah dipakai user lain.", "error")
+        else:
+            db.execute("UPDATE users SET email=? WHERE id=?", (email, user["id"]))
+            db.commit()
+            flash("Email berhasil diperbarui.", "success")
+        return redirect(url_for("profile"))
+    return render_template("profile.html", user=user,
+                           group_label=GROUP_LABELS.get(user["divisi"], user["divisi"]))
+
+
+@app.route("/profile/delete", methods=["POST"])
+@login_required
+def delete_account():
+    """Hapus akun sendiri (mis. pindah departemen / resign). Setelah dihapus,
+    email user tidak lagi menerima notifikasi grup. Data riwayat (upload, note,
+    judgement) tetap ada karena hanya menyimpan nama user."""
+    db = get_db()
+    user = db.execute(
+        "SELECT * FROM users WHERE username=? AND divisi=?",
+        (session["username"], session["divisi"]),
+    ).fetchone()
+    if not user:
+        session.clear()
+        return redirect(url_for("login"))
+    if not verify_password(user["password"], request.form.get("password", "")):
+        flash("Password salah. Akun tidak dihapus.", "error")
+        return redirect(url_for("profile"))
+    if user["divisi"] == "Management":
+        others = db.execute(
+            "SELECT COUNT(*) AS c FROM users WHERE divisi='Management' AND id<>?",
+            (user["id"],),
+        ).fetchone()["c"]
+        if not others:
+            flash("Anda satu-satunya anggota Management, akun tidak bisa dihapus.", "error")
+            return redirect(url_for("profile"))
+    db.execute("DELETE FROM users WHERE id=?", (user["id"],))
+    db.commit()
+    session.clear()
+    flash("Akun berhasil dihapus.", "success")
+    return redirect(url_for("login"))
+
+
+
+
+def overdue_months(db, year):
+    """Bulan (nama) yang punya pekerjaan belum Close dengan due date hari ini
+    atau sudah lewat. Pending yang due date-nya masih ke depan tidak dihitung."""
+    today = datetime.now().date().isoformat()
+    rows = db.execute(
+        """SELECT DISTINCT p.month
+           FROM parts p
+           LEFT JOIN model_partlists mp
+             ON mp.customer_id=p.customer_id
+            AND mp.model_name=p.model_name
+            AND mp.category=p.category
+            AND mp.year=p.year
+           WHERE p.year=?
+             AND COALESCE(p.due_date, '') <> ''
+             AND date(p.due_date) <= date(?)
+             AND (p.redraw_status <> 'Close'
+                  OR p.review_status <> 'Close'
+                  OR COALESCE(mp.partlist_status,'Open') <> 'Close')""",
+        (year, today),
+    ).fetchall()
+    return {r["month"] for r in rows}
+
 
 def category_overdue_map(db, month, year=None):
     today = datetime.now().date().isoformat()
@@ -867,7 +1114,7 @@ def category_overdue_map(db, month, year=None):
     rows = db.execute(
         """SELECT p.category,
                   MAX(CASE WHEN COALESCE(p.due_date, '') <> ''
-                                AND date(p.due_date) < date(?)
+                                AND date(p.due_date) <= date(?)
                                 AND (p.redraw_status != 'Close'
                                      OR p.review_status != 'Close'
                                      OR COALESCE(mp.partlist_status,'Open') != 'Close')
@@ -975,10 +1222,17 @@ def dashboard():
     ).fetchall()
     months_with_pending = {r["month"] for r in pending_rows}
 
+    months_overdue = overdue_months(db, selected_year)
     month_table = []
     for m in MONTHS:
         qty = qty_by_month.get(m, 0)
-        status = "empty" if qty == 0 else ("pending" if m in months_with_pending else "done")
+        if qty == 0:
+            status = "empty"
+        elif m in months_with_pending:
+            # merah hanya jika sudah jatuh tempo; pending biasa tetap hitam
+            status = "overdue" if m in months_overdue else "pending"
+        else:
+            status = "done"
         month_table.append((m, qty, status))
 
     selected_month = request.args.get("month", "May")
@@ -1719,7 +1973,9 @@ def redraw_detail(part_id):
             ]
             feedback_file = request.files.get("feedback_file")
 
-            if divisi not in DIVISIONS:
+            if divisi == "Management":
+                flash("Management memberi keputusan lewat menu Judgement.", "error")
+            elif divisi not in DIVISIONS:
                 flash("Divisi tidak valid untuk Note.", "error")
             elif not text and (not feedback_file or not feedback_file.filename):
                 flash("Isi catatan atau pilih file feedback terlebih dahulu.", "error")
@@ -2107,7 +2363,8 @@ def details():
         partnumber = request.form.get("partnumber", "").strip()
         category = request.form.get("category", "Chasis").strip()
         marketing_note = request.form.get("marketing_note", "").strip()
-        note_target_text = "Engineer"
+        note_targets = parse_note_targets("Marketing", always_include="Engineer")
+        note_target_text = ", ".join(note_targets)
 
         kondisi, standard_hours = determine_rfq_condition(selected_items)
         due_date = calculate_due_date_from_hours(datetime.now(), standard_hours)
@@ -2171,19 +2428,22 @@ def details():
 
         db.commit()
         new_part = db.execute("SELECT * FROM parts WHERE id=?", (part_id,)).fetchone()
-        email_sent = notify_new_rfq(new_part, original_name, marketing_note)
+        email_sent = notify_new_rfq(new_part, original_name, marketing_note, note_targets)
         if email_sent:
-            flash(f"File '{original_name}' berhasil dikirim. Notifikasi email terkirim ke Engineer.", "success")
+            flash(f"File '{original_name}' berhasil dikirim. Notifikasi email terkirim ke {note_target_text}.", "success")
         else:
-            flash(f"File '{original_name}' berhasil dikirim, tetapi email notifikasi ke Engineer GAGAL terkirim. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
+            flash(f"File '{original_name}' berhasil dikirim, tetapi email notifikasi ke {note_target_text} GAGAL terkirim. Cek konfigurasi SMTP dan email anggota grup.", "warning")
         return redirect(url_for("details"))
 
     submissions = db.execute("SELECT * FROM submissions ORDER BY id DESC LIMIT 200").fetchall()
     customers = db.execute("SELECT name FROM customers ORDER BY name").fetchall()
+    rfq_notes = db.execute("SELECT * FROM rfq_notes ORDER BY id DESC LIMIT 100").fetchall()
 
     return render_template(
         "details.html",
         submissions=submissions,
+        rfq_notes=rfq_notes,
+        group_labels=GROUP_LABELS,
         customers=customers,
         can_submit=(current_divisi() == "Marketing"),
         divisions=DIVISIONS,
@@ -2193,6 +2453,143 @@ def details():
             for k, v in RFQ_CONDITION_SCHEDULE.items()
         ],
     )
+
+
+@app.route("/judgement", methods=["GET", "POST"])
+@login_required
+def judgement():
+    """Menu Judgement: Management memberi keputusan untuk RFQ customer baru
+    dan commodity baru. Semua divisi bisa melihat; hanya Management yang input."""
+    db = get_db()
+    is_mgmt = current_divisi() == "Management"
+    if request.method == "POST":
+        if not is_mgmt:
+            flash("Hanya Management yang dapat memberi judgement.", "error")
+            return redirect(url_for("judgement"))
+        jenis = request.form.get("jenis", "")
+        customer = request.form.get("customer", "").strip()
+        commodity = request.form.get("commodity", "").strip()
+        model_name = request.form.get("model_name", "").strip()
+        partnumber = request.form.get("partnumber", "").strip()
+        keputusan = request.form.get("keputusan", "")
+        catatan = request.form.get("catatan", "").strip()
+        # Judgement hanya untuk Management: semua manajer (grup Management) menerima.
+        recipients = ["Management"]
+        error = None
+        if jenis not in JUDGEMENT_TYPES:
+            error = "Pilih jenis judgement."
+        elif jenis == "RFQ Customer Baru" and not customer:
+            error = "Customer wajib diisi untuk RFQ Customer Baru."
+        elif jenis == "Commodity Baru" and not commodity:
+            error = "Commodity wajib diisi untuk Commodity Baru."
+        elif keputusan not in JUDGEMENT_DECISIONS:
+            error = "Pilih keputusan."
+        elif not catatan:
+            error = "Isi alasan / catatan judgement."
+        if error:
+            flash(error, "error")
+            return redirect(url_for("judgement"))
+        subject_ref = customer or commodity
+        sent = send_email_notification(
+            f"[Monitoring RFQ] Judgement Management - {jenis} - {subject_ref} - {keputusan}",
+            f"""Management telah memberikan judgement.
+
+Jenis      : {jenis}
+Customer   : {customer or '-'}
+Commodity  : {commodity or '-'}
+Model      : {model_name or '-'}
+Partnumber : {partnumber or '-'}
+Keputusan  : {keputusan}
+Oleh       : {session.get('username', '-')} (Management)
+
+Alasan / Catatan:
+{catatan}
+
+Riwayat lengkap ada di menu Judgement pada Monitoring RFQ.
+""",
+            recipients,
+        )
+        recipient_text = ", ".join(recipients)
+        db.execute(
+            "INSERT INTO management_judgements (jenis, customer, commodity, model_name, partnumber, "
+            "keputusan, catatan, author, recipient_divisions, email_sent, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (jenis, customer, commodity, model_name, partnumber, keputusan, catatan,
+             session["username"], recipient_text, 1 if sent else 0,
+             datetime.now().strftime("%d-%m-%Y %H:%M")),
+        )
+        db.commit()
+        if sent:
+            flash(f"Judgement tersimpan dan email terkirim ke {recipient_text}.", "success")
+        else:
+            flash(f"Judgement tersimpan, tetapi email ke {recipient_text} GAGAL terkirim. Cek konfigurasi SMTP dan email anggota grup.", "warning")
+        return redirect(url_for("judgement"))
+
+    jenis_filter = request.args.get("jenis", "")
+    if jenis_filter in JUDGEMENT_TYPES:
+        rows = db.execute("SELECT * FROM management_judgements WHERE jenis=? ORDER BY id DESC LIMIT 300",
+                          (jenis_filter,)).fetchall()
+    else:
+        jenis_filter = ""
+        rows = db.execute("SELECT * FROM management_judgements ORDER BY id DESC LIMIT 300").fetchall()
+    customers = db.execute("SELECT name FROM customers ORDER BY name").fetchall()
+    return render_template(
+        "judgement.html", rows=rows, is_mgmt=is_mgmt, divisions=DIVISIONS,
+        group_labels=GROUP_LABELS, types=JUDGEMENT_TYPES, decisions=JUDGEMENT_DECISIONS,
+        jenis_filter=jenis_filter, customers=customers,
+    )
+
+
+@app.route("/judgement/delete/<int:judgement_id>", methods=["POST"])
+@login_required
+def delete_judgement(judgement_id):
+    if current_divisi() != "Management":
+        flash("Hanya Management yang dapat menghapus judgement.", "error")
+        return redirect(url_for("judgement"))
+    db = get_db()
+    db.execute("DELETE FROM management_judgements WHERE id=?", (judgement_id,))
+    db.commit()
+    flash("Judgement dihapus.", "success")
+    return redirect(url_for("judgement"))
+
+
+@app.route("/details/note", methods=["POST"])
+@login_required
+def send_rfq_note():
+    """Kirim note saja (tanpa file) ke grup yang dipilih, mis. untuk memberi
+    tahu kendala."""
+    if current_divisi() != "Marketing":
+        flash("Hanya divisi Marketing yang dapat mengirim note dari halaman ini.", "error")
+        return redirect(url_for("details"))
+    text = request.form.get("marketing_note", "").strip()
+    recipients = parse_note_targets("Marketing")
+    customer = request.form.get("customer", "").strip()
+    model_name = request.form.get("model_name", "").strip()
+    partnumber = request.form.get("partnumber", "").strip()
+    category = request.form.get("category", "").strip() if (customer or model_name or partnumber) else ""
+    if category not in CATEGORIES:
+        category = ""
+    if not text:
+        flash("Isi note terlebih dahulu sebelum mengirim.", "error")
+        return redirect(url_for("details"))
+    if not recipients:
+        flash("Pilih minimal satu tujuan pengiriman note.", "error")
+        return redirect(url_for("details"))
+    sent = notify_standalone_note(text, recipients, customer, model_name, partnumber, category)
+    recipient_text = ", ".join(recipients)
+    db = get_db()
+    db.execute(
+        "INSERT INTO rfq_notes (divisi, author, customer, model_name, partnumber, category, text, "
+        "recipient_divisions, email_sent, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (current_divisi(), session["username"], customer, model_name, partnumber, category, text,
+         recipient_text, 1 if sent else 0, datetime.now().strftime("%d-%m-%Y %H:%M")),
+    )
+    db.commit()
+    if sent:
+        flash(f"Note berhasil dikirim ke {recipient_text}.", "success")
+    else:
+        flash(f"Note tersimpan, tetapi email ke {recipient_text} GAGAL terkirim. Cek konfigurasi SMTP dan email anggota grup.", "warning")
+    return redirect(url_for("details"))
 
 
 @app.route("/details/delete/<int:submission_id>", methods=["POST"])

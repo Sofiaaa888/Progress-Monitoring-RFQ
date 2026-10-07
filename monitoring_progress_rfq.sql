@@ -172,6 +172,49 @@ CREATE TABLE `submissions` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `management_judgements`
+--
+
+CREATE TABLE IF NOT EXISTS `management_judgements` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `jenis` varchar(50) NOT NULL,
+  `customer` varchar(255) DEFAULT '',
+  `commodity` varchar(255) DEFAULT '',
+  `model_name` varchar(255) DEFAULT '',
+  `partnumber` varchar(100) DEFAULT '',
+  `keputusan` varchar(50) NOT NULL,
+  `catatan` text NOT NULL,
+  `author` varchar(100) NOT NULL,
+  `recipient_divisions` varchar(255) DEFAULT '',
+  `email_sent` tinyint(4) DEFAULT 0,
+  `created_at` varchar(30) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `rfq_notes`
+--
+
+CREATE TABLE IF NOT EXISTS `rfq_notes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `divisi` varchar(50) NOT NULL,
+  `author` varchar(100) NOT NULL,
+  `customer` varchar(255) DEFAULT '',
+  `model_name` varchar(255) DEFAULT '',
+  `partnumber` varchar(100) DEFAULT '',
+  `category` varchar(50) DEFAULT '',
+  `text` text NOT NULL,
+  `recipient_divisions` varchar(255) DEFAULT '',
+  `email_sent` tinyint(4) DEFAULT 0,
+  `created_at` varchar(30) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `users`
 --
 
@@ -179,18 +222,19 @@ CREATE TABLE `users` (
   `id` int(11) NOT NULL,
   `username` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
-  `divisi` varchar(50) NOT NULL
+  `divisi` varchar(50) NOT NULL,
+  `email` varchar(255) DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`id`, `username`, `password`, `divisi`) VALUES
-(1, 'marketing1', 'marketing123', 'Marketing'),
-(2, 'engineer1', 'engineer123', 'Engineer'),
-(3, 'purchasing1', 'purchasing123', 'Purchasing'),
-(4, 'management1', 'management123', 'Management');
+INSERT INTO `users` (`id`, `username`, `password`, `divisi`, `email`) VALUES
+(1, 'marketing1', 'marketing123', 'Marketing', ''),
+(2, 'engineer1', 'engineer123', 'Engineer', ''),
+(3, 'purchasing1', 'purchasing123', 'Purchasing', ''),
+(4, 'management1', 'management123', 'Management', '');
 
 --
 -- Indexes for dumped tables

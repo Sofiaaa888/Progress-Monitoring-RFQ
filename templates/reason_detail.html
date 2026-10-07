@@ -204,9 +204,13 @@
 
   <div class="detail-right">
     <div class="notes-card">
+    {% if session.get('divisi') == 'Management' %}
+    <div class="judgement-hint">Keputusan untuk RFQ customer baru &amp; commodity baru diberikan lewat menu <a href="{{ url_for('judgement') }}">Judgement</a>.</div>
+    {% endif %}
     {% for d in divisions %}
+    {% if d != 'Management' or notes_by_divisi.get('Management') %}
     <div class="divisi-card divisi-{{ d|lower }}">
-      <div class="divisi-title">{{ 'Engineering' if d == 'Engineer' else ('Management Note' if d == 'Management' else d) }}</div>
+      <div class="divisi-title">{{ 'Engineering' if d == 'Engineer' else ('Management (arsip)' if d == 'Management' else d) }}</div>
       <div class="divisi-notes">
         {% for n in notes_by_divisi.get(d, []) %}
         <div class="note-item">
@@ -235,7 +239,7 @@
         {% else %}<div class="note-empty">....</div>{% endfor %}
       </div>
 
-      {% if session.get('divisi') == d %}
+      {% if session.get('divisi') == d and d != 'Management' %}
       <form method="POST" class="add-note-form" enctype="multipart/form-data">
         <input type="hidden" name="action" value="add_note">
 
@@ -274,6 +278,7 @@
       </form>
       {% endif %}
     </div>
+    {% endif %}
     {% endfor %}
   </div>
   </div>

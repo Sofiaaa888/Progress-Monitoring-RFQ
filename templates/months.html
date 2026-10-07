@@ -11,10 +11,10 @@
     <tbody>
       <tr>
         {% for cat in category_summary %}
-        <td class="{% if cat.overdue %}overdue{% endif %}" title="{{ 'Ada pekerjaan yang melewati Due Date' if cat.overdue else '' }}">
+        <td class="{% if cat.overdue %}overdue{% endif %}" title="{{ 'Ada pekerjaan yang sudah jatuh tempo (due date hari ini / terlewat)' if cat.overdue else '' }}">
           <a href="{{ url_for('progress', category=cat.name, month=month, year=selected_year) }}" class="cat-link">{{ cat.count }}</a>
         </td>
-        <td class="{% if cat.status == 'Close' %}status-close{% endif %}{% if cat.overdue %} overdue{% endif %}" title="{{ 'Ada pekerjaan yang melewati Due Date' if cat.overdue else '' }}">
+        <td class="{% if cat.status == 'Close' %}status-close{% endif %}{% if cat.overdue %} overdue{% endif %}" title="{{ 'Ada pekerjaan yang sudah jatuh tempo (due date hari ini / terlewat)' if cat.overdue else '' }}">
           <a href="{{ url_for('progress', category=cat.name, month=month, year=selected_year) }}" class="cat-link">{{ cat.status }}</a>
         </td>
         {% endfor %}

@@ -42,9 +42,25 @@
               placeholder="Tuliskan note atau permintaan khusus dari Marketing untuk RFQ ini..."
             ></textarea>
 
+            <div class="note-target-field">
+              <span class="note-target-title">Kirim note ke:</span>
+              {% for d in divisions if d != 'Marketing' %}
+              <label class="note-target-opt">
+                <input type="checkbox" name="note_targets" value="{{ d }}" {% if d == 'Engineer' %}checked{% endif %}>
+                {{ group_labels.get(d, d) }}
+              </label>
+              {% endfor %}
+            </div>
+
             <small class="marketing-note-hint">
-              Note ini akan langsung dikirim melalui email ke Engineering saat file RFQ dikirim.
+              Saat <strong>Kirim File</strong>, note ikut dikirim di email RFQ ke grup yang dipilih
+              (Engineering selalu menerima email pengiriman file).
+              Pakai <strong>Kirim Note Saja</strong> untuk memberi tahu kendala tanpa mengirim file;
+              hanya isi note dan tujuan yang wajib, Customer/Model/Partnumber boleh dikosongkan.
             </small>
+            <button type="submit" class="btn-note-only"
+                    formaction="{{ url_for('send_rfq_note') }}"
+                    formnovalidate data-standalone-note>Kirim Note Saja</button>
           </div>
           {% endif %}
         </div>
@@ -191,7 +207,30 @@
   </table> 
 </div>
     
-
+{% if rfq_notes %}
+<div class="panel wide-panel" style="margin-top:20px;">
+  <div class="panel-header">RIWAYAT NOTE (TANPA FILE)</div>
+  <table class="panel-table">
+    <thead>
+      <tr><th>No.</th><th>Tanggal</th><th>Dari</th><th>Customer</th><th>Model</th><th>Partnumber</th><th class="note-col">Note</th><th>Dikirim ke</th></tr>
+    </thead>
+    <tbody>
+      {% for n in rfq_notes %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ n.created_at }}</td>
+        <td>{{ n.author }} ({{ n.divisi }})</td>
+        <td>{{ n.customer or '-' }}</td>
+        <td>{{ n.model_name or '-' }}</td>
+        <td>{{ n.partnumber or '-' }}</td>
+        <td class="note-cell"><div class="note-cell-inner">{{ n.text }}</div></td>
+        <td>{{ n.recipient_divisions }}{% if not n.email_sent %} <em>(email gagal)</em>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 
 <script>
 (function () {
@@ -280,6 +319,8 @@ const match = schedule.find(row => {
   return standardItems.length === selected.size &&
          standardItems.every(item => selected.has(item));
 });
+      const standalone = event.submitter && event.submitter.hasAttribute('data-standalone-note');
+      if (standalone) return;
       if (!match) {
         event.preventDefault();
         alert('Checklist belum sesuai dengan kondisi A-G pada jadwal RFQ.');

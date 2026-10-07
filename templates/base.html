@@ -14,9 +14,10 @@
     </div>
     <nav class="sidebar-nav">
       <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint=='dashboard' %}active{% endif %}">Dashboard</a>
-      <a href="{{ url_for('companies') }}" class="nav-item {% if request.endpoint=='companies' %}active{% endif %}">Customer</a>
       <a href="{{ url_for('progress') }}" class="nav-item {% if request.endpoint in ['progress','progress_model','redraw_detail'] %}active{% endif %}">Progress</a>
       <a href="{{ url_for('details') }}" class="nav-item {% if request.endpoint=='details' %}active{% endif %}">RFQ Document</a>
+      <a href="{{ url_for('companies') }}" class="nav-item {% if request.endpoint=='companies' %}active{% endif %}">Customer</a>
+      <a href="{{ url_for('judgement') }}" class="nav-item {% if request.endpoint=='judgement' %}active{% endif %}">Judgement</a>
     </nav>
     <a href="{{ url_for('logout') }}" class="logout-link">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -37,7 +38,7 @@
         <div style="display:flex; align-items:center; gap:10px;">
           <img src="{{ url_for('static', filename='img/user.png') }}" alt="user" class="user-avatar">
           <div class="user-info">
-            <div class="user-name">{{ session.get('username','') }}</div>
+            <div class="user-name"><a href="{{ url_for('profile') }}" style="color:inherit; text-decoration:none;" title="Profil & email">{{ session.get('username','') }}</a></div>
             <div class="user-divisi">{{ session.get('divisi','') }}</div>
           </div>
         </div>

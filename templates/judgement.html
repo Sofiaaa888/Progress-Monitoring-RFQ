@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Judgement Management{% endblock %}
+{% block content %}
+
+{% if is_mgmt %}
+<div class="panel wide-panel">
+  <div class="panel-header">BERI JUDGEMENT MANAGEMENT</div>
+  <div class="upload-body">
+    <form method="POST" action="{{ url_for('judgement') }}" class="judgement-form">
+      <div class="judgement-grid">
+        <label>Jenis Judgement
+          <select name="jenis" id="jenis" required>
+            <option value="" disabled selected>Pilih jenis</option>
+            {% for t in types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Keputusan
+          <select name="keputusan" required>
+            <option value="" disabled selected>Keputusan</option>
+            {% for d in decisions %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Customer <span class="req-hint" id="reqCustomer"></span>
+          <input type="text" name="customer" list="jd-customers" placeholder="Ex. PT A">
+          <datalist id="jd-customers">{% for c in customers %}<option value="{{ c.name }}">{% endfor %}</datalist>
+        </label>
+        <label>Commodity <span class="req-hint" id="reqCommodity"></span>
+          <input type="text" name="commodity" placeholder="Ex. Pipa brake, bracket, dll">
+        </label>
+        <label>Model
+          <input type="text" name="model_name" placeholder="Ex. Model A">
+        </label>
+        <label>Partnumber
+          <input type="text" name="partnumber" placeholder="Ex. PN-001">
+        </label>
+      </div>
+      <label class="judgement-wide">Catatan Judgement
+        <textarea name="catatan" rows="4" required placeholder="Catatan..."></textarea>
+      </label>
+      <p class="note-target-title" style="margin:0;">Judgement ini dikirim lewat email ke semua Management.</p>
+      <button type="submit" class="btn-save" style="margin-top:14px;">Simpan &amp; Kirim Judgement</button>
+    </form>
+  </div>
+</div>
+{% else %}
+<p class="perm-note">Halaman ini menampilkan keputusan Management untuk RFQ customer baru dan commodity baru. Hanya Management yang dapat menambah judgement.</p>
+{% endif %}
+
+<div class="panel wide-panel" style="margin-top:20px;">
+  <div class="panel-header">RIWAYAT JUDGEMENT</div>
+  <div class="judgement-filter">
+    <a href="{{ url_for('judgement') }}" class="{{ 'active' if not jenis_filter }}">Semua</a>
+    {% for t in types %}<a href="{{ url_for('judgement', jenis=t) }}" class="{{ 'active' if jenis_filter == t }}">{{ t }}</a>{% endfor %}
+  </div>
+  <table class="panel-table">
+    <thead>
+      <tr><th>No.</th><th>Tanggal</th><th>Jenis</th><th>Customer</th><th>Commodity</th><th>Model / P/N</th><th>Keputusan</th><th class="note-col">Catatan</th>{% if is_mgmt %}<th>Aksi</th>{% endif %}</tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ r.created_at }}<div class="note-meta">{{ r.author }}{% if not r.email_sent %} &middot; <em>email gagal</em>{% endif %}</div></td>
+        <td>{{ r.jenis }}</td>
+        <td>{{ r.customer or '-' }}</td>
+        <td>{{ r.commodity or '-' }}</td>
+        <td>{{ r.model_name or '-' }}{% if r.partnumber %} / {{ r.partnumber }}{% endif %}</td>
+        <td><span class="jd-badge jd-{{ r.keputusan|lower|replace(' ', '-') }}">{{ r.keputusan }}</span></td>
+        <td class="note-cell"><div class="note-cell-inner">{{ r.catatan }}</div></td>
+        {% if is_mgmt %}
+        <td>
+          <form method="POST" action="{{ url_for('delete_judgement', judgement_id=r.id) }}" style="display:inline">
+            <button type="submit" class="btn-remove" onclick="return confirm('Hapus judgement ini?')">Hapus</button>
+          </form>
+        </td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="{{ 9 if is_mgmt else 8 }}" class="empty-row">Belum ada judgement.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+(function () {
+  const jenis = document.getElementById('jenis');
+  if (!jenis) return;
+  const cust = document.querySelector('[name="customer"]');
+  const comm = document.querySelector('[name="commodity"]');
+  const rc = document.getElementById('reqCustomer');
+  const rm = document.getElementById('reqCommodity');
+  function sync() {
+    const isCust = jenis.value === 'RFQ Customer Baru';
+    const isComm = jenis.value === 'Commodity Baru';
+    cust.required = isCust; comm.required = isComm;
+    rc.textContent = isCust ? '(wajib)';
+    rm.textContent = isComm ? '(wajib)';
+  }
+  jenis.addEventListener('change', sync); sync();
+})();
+</script>
+{% endblock %}

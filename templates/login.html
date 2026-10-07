@@ -33,9 +33,14 @@
           <select name="divisi" required>
             <option value="" disabled selected>Divisi</option>
             {% for d in divisions %}
-              <option value="{{ d }}">{{ d }}</option>
+              <option value="{{ d }}">{{ group_labels.get(d, d) }}</option>
             {% endfor %}
           </select>
         </div>
         <button type="submit" class="btn-sign">Sign</button>
       </form>
+      <div class="register-link">Belum punya akun? <a href="{{ url_for('register') }}">Register</a></div>
+    </div>
+  </div>
+</body>
+</html>
