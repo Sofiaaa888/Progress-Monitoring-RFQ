@@ -37,14 +37,12 @@ SMTP_FROM = os.getenv("SMTP_FROM", "") or SMTP_USER
 SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "true").lower() == "true"
 EMAIL_NOTIFICATIONS_ENABLED = os.getenv("EMAIL_NOTIFICATIONS_ENABLED", "true").lower() == "true"
 NOTIFY_MANAGEMENT_CC = os.getenv("NOTIFY_MANAGEMENT_CC", "true").lower() == "true"
-# Prefix variabel .env untuk akun email tiap grup, mis. GROUP_MARKETING_SMTP_USER
 DIVISION_ENV_PREFIX = {
     "Marketing": "GROUP_MARKETING",
     "Engineer": "GROUP_ENGINEERING",
     "Purchasing": "GROUP_PURCHASING",
     "Management": "GROUP_MANAGEMENT",
 }
-# Nama grup yang tampil di register & di nama pengirim email.
 GROUP_LABELS = {
     "Marketing": "Marketing",
     "Engineer": "Engineering",
@@ -1007,7 +1005,6 @@ def register():
         if error:
             flash(error, "error")
         else:
-            # Role yang dipilih = grup user; otomatis menjadi anggota grup tsb.
             db.execute(
                 "INSERT INTO users (username, password, divisi, email) VALUES (?,?,?,?)",
                 (form["username"], generate_password_hash(password),
@@ -1229,7 +1226,6 @@ def dashboard():
         if qty == 0:
             status = "empty"
         elif m in months_with_pending:
-            # merah hanya jika sudah jatuh tempo; pending biasa tetap hitam
             status = "overdue" if m in months_overdue else "pending"
         else:
             status = "done"
@@ -2473,7 +2469,6 @@ def judgement():
         partnumber = request.form.get("partnumber", "").strip()
         keputusan = request.form.get("keputusan", "")
         catatan = request.form.get("catatan", "").strip()
-        # Judgement hanya untuk Management: semua manajer (grup Management) menerima.
         recipients = ["Management"]
         error = None
         if jenis not in JUDGEMENT_TYPES:
