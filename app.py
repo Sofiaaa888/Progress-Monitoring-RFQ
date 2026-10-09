@@ -39,10 +39,10 @@ SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "true").lower() == "true"
 EMAIL_NOTIFICATIONS_ENABLED = os.getenv("EMAIL_NOTIFICATIONS_ENABLED", "true").lower() == "true"
 NOTIFY_MANAGEMENT_CC = os.getenv("NOTIFY_MANAGEMENT_CC", "true").lower() == "true"
 DIVISION_ENV_PREFIX = {
-    "Marketing": "GROUP_MARKETING",
-    "Engineer": "GROUP_ENGINEERING",
-    "Purchasing": "GROUP_PURCHASING",
-    "Management": "GROUP_MANAGEMENT",
+    "Marketing": "MARKETING",
+    "Engineer": "ENGINEERING",
+    "Purchasing": "PURCHASING",
+    "Management": "MANAGEMENT",
 }
 GROUP_LABELS = {
     "Marketing": "Marketing",
@@ -166,7 +166,7 @@ def send_email_notification(subject, body, recipient_divisions, attachment_path=
         taken = [r.lower() for r in recipients]
         cc = [a for a in get_group_member_emails("Management") if a.lower() not in taken]
     sender_name = (
-        f"{GROUP_LABELS.get(actor_group, actor_group)} Group - Monitoring RFQ"
+        f"{GROUP_LABELS.get(actor_group, actor_group)} - Monitoring Progress RFQ"
         if actor_group else "Monitoring Progress RFQ"
     )
     msg = EmailMessage()
