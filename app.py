@@ -38,20 +38,12 @@ SMTP_FROM = os.getenv("SMTP_FROM", "") or SMTP_USER
 SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "true").lower() == "true"
 EMAIL_NOTIFICATIONS_ENABLED = os.getenv("EMAIL_NOTIFICATIONS_ENABLED", "true").lower() == "true"
 NOTIFY_MANAGEMENT_CC = os.getenv("NOTIFY_MANAGEMENT_CC", "true").lower() == "true"
-<<<<<<< HEAD
-=======
-
->>>>>>> 4cf9c90 (Update)
 DIVISION_ENV_PREFIX = {
     "Marketing": "GROUP_MARKETING",
     "Engineer": "GROUP_ENGINEERING",
     "Purchasing": "GROUP_PURCHASING",
     "Management": "GROUP_MANAGEMENT",
 }
-<<<<<<< HEAD
-=======
-
->>>>>>> 4cf9c90 (Update)
 GROUP_LABELS = {
     "Marketing": "Marketing",
     "Engineer": "Engineering",
