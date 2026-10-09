@@ -6,6 +6,7 @@ from mysql.connector import Error
 from dotenv import load_dotenv
 import uuid
 import smtplib
+import socket
 from email.message import EmailMessage
 from email.utils import formataddr
 from datetime import datetime
@@ -17,7 +18,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-load_dotenv(os.path.join(BASE_DIR, '.env'))
+load_dotenv(os.path.join(BASE_DIR, '.env.example'))
 MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
 MYSQL_USER = os.getenv("MYSQL_USER", "root")
@@ -37,12 +38,20 @@ SMTP_FROM = os.getenv("SMTP_FROM", "") or SMTP_USER
 SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "true").lower() == "true"
 EMAIL_NOTIFICATIONS_ENABLED = os.getenv("EMAIL_NOTIFICATIONS_ENABLED", "true").lower() == "true"
 NOTIFY_MANAGEMENT_CC = os.getenv("NOTIFY_MANAGEMENT_CC", "true").lower() == "true"
+<<<<<<< HEAD
+=======
+
+>>>>>>> 4cf9c90 (Update)
 DIVISION_ENV_PREFIX = {
     "Marketing": "GROUP_MARKETING",
     "Engineer": "GROUP_ENGINEERING",
     "Purchasing": "GROUP_PURCHASING",
     "Management": "GROUP_MANAGEMENT",
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 4cf9c90 (Update)
 GROUP_LABELS = {
     "Marketing": "Marketing",
     "Engineer": "Engineering",
@@ -82,6 +91,39 @@ def get_smtp_account(division):
     }
 
 
+def _set_email_error(reason):
+    """Simpan alasan gagal kirim email agar ikut tampil di pesan flash."""
+    print(f"[EMAIL] {reason}")
+    if has_request_context():
+        g.email_error = reason
+
+
+def _explain_smtp_error(exc, account):
+    host, port = account.get("host"), account.get("port")
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        return (f"login ke {host} ditolak untuk akun {account.get('user')}. Cek app password "
+                "(16 huruf tanpa spasi), pastikan verifikasi 2 langkah aktif, dan akun "
+                "kampus/kantor tidak diblokir adminnya.")
+    if isinstance(exc, socket.gaierror):
+        return f"host SMTP '{host}' tidak ditemukan. Cek SMTP_HOST di .env (Gmail: smtp.gmail.com)."
+    if isinstance(exc, (socket.timeout, TimeoutError, ConnectionRefusedError, OSError)) and not isinstance(exc, smtplib.SMTPException):
+        return f"tidak bisa terhubung ke {host}:{port} ({exc}). Cek host, port, dan koneksi internet."
+    if isinstance(exc, smtplib.SMTPSenderRefused):
+        return f"pengirim {account.get('from')} ditolak server. SMTP_FROM harus sama dengan akun yang login."
+    return f"{type(exc).__name__}: {str(exc)[:200]}"
+
+
+_orig_flash = flash
+
+
+def flash(message, category="message"):
+    """Sama seperti flask.flash, tetapi pesan 'GAGAL terkirim' ditambah penyebabnya."""
+    reason = getattr(g, "email_error", "") if has_request_context() else ""
+    if reason and "GAGAL terkirim" in message:
+        message = f"{message} Penyebab: {reason}"
+    return _orig_flash(message, category)
+
+
 def get_group_member_emails(division):
     """Email semua user yang register di grup (divisi) tersebut."""
     db = get_db()
@@ -102,24 +144,30 @@ def send_email_notification(subject, body, recipient_divisions, attachment_path=
     Email keluar dari akun grup si pengirim (mis. user Marketing -> akun
     Marketing), sehingga penerima melihatnya sebagai email dari grup itu.
     Akun sistem menjadi penjembatan/cadangan: dipakai jika akun grup belum diisi."""
+    if has_request_context():
+        g.email_error = ""
     if not EMAIL_NOTIFICATIONS_ENABLED:
-        print("[EMAIL] Notifications disabled.")
+        _set_email_error("EMAIL_NOTIFICATIONS_ENABLED bernilai false di .env.")
         return False
     actor_group = session.get("divisi") if has_request_context() else None
     account = get_smtp_account(actor_group)
     if not account["host"] or not account["from"]:
-        print(f"[EMAIL] SMTP untuk {account['label']} belum diisi di .env.")
+        _set_email_error(f"SMTP untuk {account['label']} belum lengkap (host atau alamat pengirim kosong) di .env.")
         return False
     recipients = []
+    empty_groups = []
     for division in (recipient_divisions or []):
         addresses = get_group_member_emails(division)
         if not addresses:
-            print(f"[EMAIL] Belum ada anggota grup {division} dengan email terisi.")
+            empty_groups.append(GROUP_LABELS.get(division, division))
         for address in addresses:
             if address.lower() not in [r.lower() for r in recipients]:
                 recipients.append(address)
     if not recipients:
-        print(f"[EMAIL] Tidak ada penerima untuk grup: {recipient_divisions}")
+        _set_email_error(
+            f"belum ada anggota grup {', '.join(empty_groups) or 'tujuan'} yang emailnya terisi "
+            "(user harus register atau mengisi email di halaman Profil)."
+        )
         return False
     cc = []
     if NOTIFY_MANAGEMENT_CC and actor_group != "Management":
@@ -151,7 +199,7 @@ def send_email_notification(subject, body, recipient_divisions, attachment_path=
                 filename=filename,
             )
         except OSError as exc:
-            print(f"[EMAIL] Gagal membaca lampiran: {exc}")
+            _set_email_error(f"gagal membaca lampiran: {exc}")
             return False
     try:
         with smtplib.SMTP(account["host"], account["port"], timeout=15) as smtp:
@@ -163,7 +211,7 @@ def send_email_notification(subject, body, recipient_divisions, attachment_path=
         print(f"[EMAIL] Sent via {account['label']}: {subject} -> To: {recipients} Cc: {cc}")
         return True
     except Exception as exc:
-        print(f"[EMAIL] Gagal mengirim notifikasi: {exc}")
+        _set_email_error(_explain_smtp_error(exc, account))
         return False
 
 MONTHS = ["January", "February", "March", "April", "May", "June", "July",

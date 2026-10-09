@@ -94,8 +94,8 @@
     const isCust = jenis.value === 'RFQ Customer Baru';
     const isComm = jenis.value === 'Commodity Baru';
     cust.required = isCust; comm.required = isComm;
-    rc.textContent = isCust ? '(wajib)';
-    rm.textContent = isComm ? '(wajib)';
+    rc.textContent = isCust ? '(wajib)' : '(opsional)';
+    rm.textContent = isComm ? '(wajib)' : '(opsional)';
   }
   jenis.addEventListener('change', sync); sync();
 })();
