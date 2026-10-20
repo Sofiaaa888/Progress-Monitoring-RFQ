@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Monitoring Progress{% endblock %}
+{% block content %}
+
+<div class="tabs progress-category-tabs">
+  {% for cat in categories %}
+    <a href="{{ url_for('progress', category=cat, month=selected_month) }}" class="tab {% if cat == category %}active{% endif %}">{{ cat }}</a>
+  {% endfor %}
+</div>
+
+{% if selected_month %}
+  <div class="selected-progress-month">Bulan Progress: <strong>{{ selected_month }}</strong></div>
+{% endif %}
+
+<div class="panel wide-panel">
+  <div class="panel-header">Progress {{ customer.name }}</div>
+  {% if session.get('divisi') in ('Purchasing', 'Management') %}
+  <p class="doc-policy-note">File hanya bisa didownload setelah di-approve</p>
+  {% else %}
+  <p class="doc-policy-note">Anda bisa mendownload semua file, termasuk yang belum di-approve</p>
+  {% endif %}
+  <div class="table-tools">
+    <input id="progressSearch" class="table-search" type="search" placeholder="Cari model, P/N, atau due date...">
+  </div>
+
+  <table class="panel-table pending-progress-table" id="progressTable">
+    <thead>
+      <tr>
+        <th>No.</th>
+        <th>Customer</th>
+        <th>Model</th>
+        <th>P/N</th>
+        <th>Due Date</th>
+        <th>Redraw</th>
+        <th>Drawing Review</th>
+        <th>Partlist</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in parts %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ customer.name }}</td>
+        <td>{{ p.model_name }}</td>
+        <td>{{ p.part_no }}</td>
+        <td>{{ p.due_date or '-' }}</td>
+
+        <td>
+          <a class="cell-link" href="{{ url_for('redraw_detail', part_id=p.id, tab='redraw', month=selected_month) }}">
+            {{ fmt_status(p.redraw_status, p.redraw_done, p.redraw_total) }}
+          </a>
+        </td>
+
+        <td>
+          <a class="cell-link" href="{{ url_for('redraw_detail', part_id=p.id, tab='review', month=selected_month) }}">
+            {{ fmt_status(p.review_status, p.review_done, p.review_total) }}
+          </a>
+        </td>
+
+        {% if p.show_partlist %}
+        <td rowspan="{{ p.model_span }}" class="model-partlist-cell">
+          {% if p.partlist_file_stored %}
+            {% if can_download_approval(p.partlist_file_status) %}
+            <a class="partlist-file-link" href="{{ url_for('download_model_partlist_file', stored_filename=p.partlist_file_stored) }}" title="Klik untuk download">{{ p.partlist_file_name }}</a>
+            {% else %}
+            <span class="partlist-file-name">{{ p.partlist_file_name }}</span>
+            <div><span class="doc-locked" title="Menunggu approval">Menunggu approval</span></div>
+            {% endif %}
+            <div class="partlist-meta"><span class="badge {{ 'badge-approved' if p.partlist_file_status == 'Sudah Approval' else 'badge-pending' }}">{{ p.partlist_file_status }}</span></div>
+          {% else %}
+            <span class="partlist-empty">Belum ada file</span>
+          {% endif %}
+        </td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="empty-row">Belum ada data.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<a href="{{ url_for('progress', category=category, month=selected_month) }}" class="back-link" onclick="goBack(event)">&larr; Kembali ke {{ category }}</a>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const input = document.getElementById('progressSearch');
+  const table = document.getElementById('progressTable');
+  if (!input || !table) return;
+  input.addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    table.querySelectorAll('tbody tr').forEach(function (row) {
+      if (row.querySelector('.empty-row')) return;
+      row.style.display = row.innerText.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+});
+</script>
+{% endblock %}

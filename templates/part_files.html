@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Dokumen Redraw' if tab == 'redraw' else 'Dokumen Drawing Review' }}{% endblock %}
+{% block content %}
+<div class="detail-grid">
+  <div class="detail-left">
+    <div class="breadcrumb">{{ customer.name }} &rsaquo; {{ part.model_name }} &rsaquo; Part {{ part.part_no }} &rsaquo; {{ part.category }}</div>
+
+    <div class="tabs small-tabs">
+      <a href="{{ url_for('redraw_detail', part_id=part.id, tab='redraw', month=selected_month) }}" class="tab {% if tab == 'redraw' %}active{% endif %}">Redraw</a>
+      <a href="{{ url_for('redraw_detail', part_id=part.id, tab='review', month=selected_month) }}" class="tab {% if tab == 'review' %}active{% endif %}">Drawing Review</a>
+    </div>
+
+    <div class="redraw-box doc-list-box">
+      <div class="redraw-title">{{ 'Dokumen Redraw' if tab == 'redraw' else 'Dokumen Drawing Review' }}</div>
+
+      {% if session.get('divisi') in ('Purchasing', 'Management') %}
+      <p class="doc-policy-note">File hanya bisa didownload setelah di-approve.</p>
+      {% else %}
+      <p class="doc-policy-note">Anda bisa mendownload semua file, termasuk yang belum di-approve.</p>
+      {% endif %}
+
+      <div class="redraw-progress-summary">
+        {% if tab == 'redraw' %}
+        <span>Progres Redraw:</span>
+        <strong>{{ part.redraw_done }}/{{ part.redraw_total }}</strong>
+        <span class="status-pill">{{ part.redraw_status }}</span>
+        {% else %}
+        <span>Progres Drawing Review:</span>
+        <strong>{{ part.review_done }}/{{ part.review_total or 1 }}</strong>
+        <span class="status-pill">{{ part.review_status }}</span>
+        {% endif %}
+      </div>
+      {% if need_summary %}
+      <p class="doc-policy-note">Kebutuhan file:
+        {% for jenis, have, need in need_summary %}{{ jenis }} {{ have }}/{{ need }}{% if not loop.last %} &middot; {% endif %}{% endfor %}
+      </p>
+      {% endif %}
+
+      <div class="table-wrap">
+        <table class="progress-file-table">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Nama File</th>
+              {% if tab == 'redraw' %}<th>Kategori</th>{% endif %}
+              <th>Status</th>
+              <th>PIC</th>
+              <th>Download</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in files %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td class="fname-cell">{{ f.original_filename }}</td>
+              {% if tab == 'redraw' %}<td>{{ f.progress_type }}</td>{% endif %}
+              <td><span class="badge {{ 'badge-approved' if f.approval_status == 'Sudah Approval' else 'badge-pending' }}">{{ f.approval_status }}</span></td>
+              <td>{{ f.uploaded_by }}<br><small>{{ f.created_at }}</small></td>
+              <td>
+                {% if can_download_approval(f.approval_status) %}
+                <a href="{{ url_for('download_redraw_file', stored_filename=f.stored_filename) }}" class="link-btn">Download</a>
+                {% else %}
+                <span class="doc-locked" title="Menunggu approval">Menunggu approval</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="{{ 6 if tab == 'redraw' else 5 }}" class="file-empty">Belum ada file {{ 'Redraw' if tab == 'redraw' else 'Drawing Review' }} yang diupload.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <a href="{{ url_for('progress_model', category=part.category, customer_id=part.customer_id, month=selected_month) }}" class="back-link">&larr; Kembali ke Progress</a>
+  </div>
+
+  {% include "_notes_panel.html" %}
+</div>
+{% endblock %}

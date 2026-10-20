@@ -24,6 +24,7 @@
   </table>
 </div>
 
+{% if can_add_customer %}
 <div class="panel wide-panel" style="margin-top:20px;">
   <div class="panel-header">Tambah Customer Baru</div>
   <form method="POST" class="inline-form">
@@ -31,4 +32,5 @@
     <button type="submit" class="btn-save">Tambah</button>
   </form>
 </div>
+{% endif %}
 {% endblock %}

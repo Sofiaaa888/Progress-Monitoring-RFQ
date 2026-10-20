@@ -1,0 +1,76 @@
+  <div class="detail-right">
+    <div class="notes-card">
+    {% for d in divisions %}
+    <div class="divisi-card divisi-{{ d|lower }}">
+      <div class="divisi-title">{{ 'Engineering' if d == 'Engineer' else d }}</div>
+      <div class="divisi-notes">
+        {% for n in notes_by_divisi.get(d, []) %}
+        <div class="note-item">
+          <div class="note-text">{{ n.text or '(Tidak ada teks)' }}</div>
+          <div class="note-meta">{{ n.author }} &middot; {{ n.created_at }}</div>
+
+          {% if n.recipient_divisions %}
+          <div class="note-recipient">Dikirim ke: {{ n.recipient_divisions }}</div>
+          {% endif %}
+
+          {% if n.attachment_stored_filename %}
+          <div class="note-attachment">
+            <span>📎 {{ n.attachment_filename }}</span>
+            <a href="{{ url_for('download_note_attachment', stored_filename=n.attachment_stored_filename) }}" class="link-btn">Download</a>
+          </div>
+          {% endif %}
+
+          {% if session.get('divisi') == d %}
+          <form method="POST" action="{{ url_for('redraw_detail', part_id=part.id) }}" style="display:inline">
+            <input type="hidden" name="action" value="remove_note">
+            <input type="hidden" name="note_id" value="{{ n.id }}">
+            <button type="submit" class="btn-remove">Remove</button>
+          </form>
+          {% endif %}
+        </div>
+        {% else %}<div class="note-empty">....</div>{% endfor %}
+      </div>
+
+      {% if session.get('divisi') == d %}
+      <form method="POST" action="{{ url_for('redraw_detail', part_id=part.id) }}" class="add-note-form" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="add_note">
+
+        <input
+          type="text"
+          name="text"
+          placeholder="Tambah catatan {{ 'Engineering' if d == 'Engineer' else d }}..."
+        >
+
+        <div class="note-feedback-row">
+          <label class="note-file-label">
+            📎 File Feedback
+            <input
+              type="file"
+              name="feedback_file"
+              accept=".zip,.rar,.7z,.pdf,.doc,.docx,.xls,.xlsx,.dwg,.jpg,.jpeg,.png"
+            >
+          </label>
+        </div>
+
+        <div class="note-recipient-box">
+          <span class="note-recipient-label">Kirim email ke:</span>
+          <div class="note-recipient-options">
+            {% for target in divisions %}
+              {% if target != session.get('divisi') %}
+              <label>
+                <input type="checkbox" name="recipient_divisions" value="{{ target }}">
+                {{ 'Engineering' if target == 'Engineer' else ('Management' if target == 'Management' else target) }}
+              </label>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+
+        <button type="submit" class="note-send-btn">Kirim Feedback</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  </div>
+

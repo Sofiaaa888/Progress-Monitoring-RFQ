@@ -156,7 +156,7 @@ CREATE TABLE `submissions` (
   `customer` varchar(255) DEFAULT '',
   `model_name` varchar(255) DEFAULT '',
   `partnumber` varchar(100) DEFAULT '',
-  `category` varchar(50) DEFAULT 'Chasis',
+  `category` varchar(50) DEFAULT 'Chassis',
   `year` int(11) DEFAULT NULL,
   `kondisi` varchar(20) DEFAULT '',
   `due_date` varchar(10) DEFAULT '',
@@ -231,10 +231,11 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `password`, `divisi`, `email`) VALUES
-(1, 'marketing1', 'marketing123', 'Marketing', ''),
-(2, 'engineer1', 'engineer123', 'Engineer', ''),
-(3, 'purchasing1', 'purchasing123', 'Purchasing', ''),
-(4, 'management1', 'management123', 'Management', '');
+(1, 'marketing1', 'scrypt:32768:8:1$gX8e8yWQ1eJUwEar$d1d41716609ce57bd903e631014cf3d7abb5a8571b1708f586747883964b866937c4db7982d2703f1672ced05982077956007ca67aaf8577ee890560120136ed', 'Marketing', ''),
+(2, 'engineer1', 'scrypt:32768:8:1$6nX7dqwO4hMbw13z$6cd8bf24f3521886186f6594e6167c127dc8d29fa5418e3db1a134c8d83ee22897f058c016acee2a7e9e8076c56b7cffe3b17dc031859f761c6d5cb54e241c4c', 'Engineer', ''),
+(3, 'purchasing1', 'scrypt:32768:8:1$GVTR4cBnFUQvVly3$26acc5c59196016a8efadd6efe72e7e75833fbeacd042e494f0e89ebe4e8d9e94fb33839d65709df7009149056bbe3117605a7d987ce90e6fc4905f332fab072', 'Purchasing', ''),
+(4, 'management1', 'scrypt:32768:8:1$jDYWAuqYwe5Ise6u$868f5238c58ceb88f4ac0ca4f3cfc9ba1876cbcadb7edcd8aa4a9ee925f28529b24c9a0c1eae543e817fd38718bd3eb15d39662a29d473398cb3bfe179b77777', 'Management', ''),
+(5, 'admin', 'scrypt:32768:8:1$WFbwigpVXl7gJSBy$27c5c270d2036967ad679b8ff295219df374c22f37ebe436b8259d0c11203c6bde82fde1bd85d0c6bfa57c9b0ead76a5a16cfad7be99ac25ab47d2703b5b08d1', 'Admin', '');
 
 --
 -- Indexes for dumped tables

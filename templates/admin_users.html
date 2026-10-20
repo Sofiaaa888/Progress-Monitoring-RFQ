@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Kelola User{% endblock %}
+{% block content %}
+
+<div class="panel wide-panel">
+  <div class="panel-header">Tambah User Baru</div>
+  <div class="admin-body">  
+    <form method="POST" action="{{ url_for('admin_user_create') }}" class="admin-form" autocomplete="off">
+      <label>Username
+        <input type="text" name="username" value="{{ form.username }}" required maxlength="100">
+      </label>
+      <label>Email
+        <input type="email" name="email" value="{{ form.email }}" placeholder="nama@gmail.com">
+      </label>
+      <label>Divisi
+        <select name="divisi" required>
+          <option value="" disabled {% if not form.divisi %}selected{% endif %}>Divisi</option>
+          {% for r in roles %}
+          <option value="{{ r }}" {% if form.divisi == r %}selected{% endif %}>{{ group_labels.get(r, r) }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Password (min. 6 karakter)
+        <input type="password" name="password" required minlength="6" autocomplete="new-password">
+      </label>
+      <button type="submit" class="btn-save">Tambah User</button>
+    </form>
+  </div>
+</div>
+
+<div class="panel wide-panel" style="margin-top:20px;">
+  <div class="panel-header">Daftar User ({{ users|length }})</div>
+  <div class="admin-counts">
+    {% for r in roles %}<span class="admin-chip">{{ group_labels.get(r, r) }}: <strong>{{ counts.get(r, 0) }}</strong></span>{% endfor %}
+  </div>
+  <table class="panel-table">
+    <thead><tr><th>No.</th><th>Username</th><th>Divisi</th><th>Email</th><th>Settings</th></tr></thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ u.username }}{% if u.id == me %} <small>(Anda)</small>{% endif %}</td>
+        <td>{{ group_labels.get(u.divisi, u.divisi) }}</td>
+        <td>{{ u.email or '-' }}</td>
+        <td class="action-cell">
+          <a class="link-btn" href="{{ url_for('admin_user_edit', user_id=u.id) }}">Edit</a>
+          {% if u.id != me %}
+          <form method="POST" action="{{ url_for('admin_user_delete', user_id=u.id) }}" class="inline-form"
+                onsubmit="return confirm('Hapus user {{ u.username }}? Tindakan ini tidak bisa dibatalkan.');">
+            <button type="submit" class="btn-remove">Hapus</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="empty-row">Belum ada user.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -28,18 +28,9 @@
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/></svg>
           <input type="password" name="password" placeholder="Password" required>
         </div>
-        <div class="login-field">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-          <select name="divisi" required>
-            <option value="" disabled selected>Divisi</option>
-            {% for d in divisions %}
-              <option value="{{ d }}">{{ group_labels.get(d, d) }}</option>
-            {% endfor %}
-          </select>
-        </div>
         <button type="submit" class="btn-sign">Sign</button>
       </form>
-      <div class="register-link">Belum punya akun? <a href="{{ url_for('register') }}">Register</a></div>
+      <div class="register-link">Belum punya akun? Hubungi Admin.</div>
     </div>
   </div>
 </body>

@@ -13,7 +13,7 @@ from datetime import datetime
 from functools import wraps
 from flask import (Flask, render_template, request, redirect, url_for,
                     session, flash, jsonify, g, send_from_directory,
-                    has_request_context)
+                    has_request_context, abort)
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -26,7 +26,7 @@ MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "monitoring progress RFQ")
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 app = Flask(__name__)
-app.secret_key = "sanoh-monitoring-rfq-secret-key"
+app.secret_key = os.getenv("SECRET_KEY") or "sanoh-monitoring-rfq-secret-key"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 
@@ -49,6 +49,7 @@ GROUP_LABELS = {
     "Engineer": "Engineering",
     "Purchasing": "Purchasing",
     "Management": "Management",
+    "Admin": "Admin",
 }
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -209,10 +210,18 @@ def send_email_notification(subject, body, recipient_divisions, attachment_path=
 MONTHS = ["January", "February", "March", "April", "May", "June", "July",
           "August", "September", "October", "November", "December"]
 
-CATEGORIES = ["Chasis", "Nylon", "Brazing"]
+CATEGORIES = ["Chassis", "Nylon", "Brazing"]
 DIVISIONS = ["Marketing", "Engineer", "Purchasing", "Management"]
-JUDGEMENT_TYPES = ["RFQ Customer Baru", "Commodity Baru"]
-JUDGEMENT_DECISIONS = ["Go", "Perlu Diskusi", "No Go"]
+ADMIN_ROLE = "Admin"
+ROLES = DIVISIONS + [ADMIN_ROLE]
+DOC_GROUPS = {
+    "Finish Good": "Redraw", "Komponen": "Redraw",
+    "Drawing Tooling": "Redraw", "Drawing Pipa": "Redraw",
+    "Drawing Review": "Drawing Review", "Partlist": "Partlist",
+}
+DOC_GROUP_ORDER = {"Redraw": 0, "Drawing Review": 1, "Partlist": 2}
+JENIS_ORDER = {"Finish Good": 0, "Komponen": 1, "Drawing Tooling": 2, "Drawing Pipa": 3,
+               "Drawing Review": 4, "Partlist": 5}
 ALLOWED_EXTENSIONS = {"zip", "rar", "7z", "pdf", "doc", "docx",
                       "xls", "xlsx", "dwg", "jpg", "jpeg", "png"}
 
@@ -486,20 +495,6 @@ def init_db():
             text TEXT,
             created_at VARCHAR(30) NOT NULL
         );
-        CREATE TABLE IF NOT EXISTS management_judgements (
-            id INTEGER PRIMARY KEY AUTO_INCREMENT,
-            jenis VARCHAR(50) NOT NULL,
-            customer VARCHAR(255) DEFAULT '',
-            commodity VARCHAR(255) DEFAULT '',
-            model_name VARCHAR(255) DEFAULT '',
-            partnumber VARCHAR(100) DEFAULT '',
-            keputusan VARCHAR(50) NOT NULL,
-            catatan TEXT NOT NULL,
-            author VARCHAR(100) NOT NULL,
-            recipient_divisions VARCHAR(255) DEFAULT '',
-            email_sent TINYINT DEFAULT 0,
-            created_at VARCHAR(30) NOT NULL
-        );
         CREATE TABLE IF NOT EXISTS rfq_notes (
             id INTEGER PRIMARY KEY AUTO_INCREMENT,
             divisi VARCHAR(50) NOT NULL,
@@ -556,7 +551,7 @@ def init_db():
             customer VARCHAR(255) DEFAULT '',
             model_name VARCHAR(255) DEFAULT '',
             partnumber VARCHAR(100) DEFAULT '',
-            category VARCHAR(50) DEFAULT 'Chasis',
+            category VARCHAR(50) DEFAULT 'Chassis',
             year INT,
             kondisi VARCHAR(20) DEFAULT '',
             due_date VARCHAR(10) DEFAULT '',
@@ -580,17 +575,16 @@ def init_db():
         migrate(db)
     db.execute(
         "INSERT IGNORE INTO users (username, password, divisi, email) VALUES (?,?,?,?)",
-        ("management1", "management123", "Management", ""),
+        ("management1", generate_password_hash("management123"), "Management", ""),
     )
     db.commit()
+    hash_legacy_passwords(db)
+    ensure_admin(db)
     backfill_demo_due_dates(db)
 
-    db.execute("""
-        UPDATE parts
-        SET review_total=1,
-            review_done=CASE WHEN review_done > 0 THEN 1 ELSE 0 END,
-            review_status=CASE WHEN review_done > 0 THEN 'Close' ELSE 'Open' END
-    """)
+    db.execute("UPDATE parts SET review_total=1 WHERE review_total IS NULL OR review_total < 1")
+    db.execute("UPDATE parts SET review_done=review_total WHERE review_done > review_total")
+    db.execute("UPDATE parts SET review_status='Close' WHERE review_done >= review_total AND review_done > 0")
     db.execute("""
         UPDATE parts
         SET partlist_total=1,
@@ -606,6 +600,38 @@ def init_db():
     db.commit()
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+def is_hashed(stored):
+    return bool(stored) and stored.startswith(("scrypt:", "pbkdf2:"))
+
+
+def hash_legacy_passwords(db):
+    """Ubah semua password plain text lama di tabel users menjadi hash."""
+    rows = db.execute("SELECT id, password FROM users").fetchall()
+    changed = 0
+    for r in rows:
+        if r["password"] and not is_hashed(r["password"]):
+            db.execute("UPDATE users SET password=? WHERE id=?",
+                       (generate_password_hash(r["password"]), r["id"]))
+            changed += 1
+    if changed:
+        db.commit()
+        print(f"[AUTH] {changed} password plain text diubah menjadi hash.")
+
+
+def ensure_admin(db):
+    """Pastikan minimal ada satu akun Admin. Password awal diambil dari ADMIN_PASSWORD
+    (default 'admin123') - segera ganti lewat halaman Kelola User setelah login pertama."""
+    exists = db.execute("SELECT 1 FROM users WHERE divisi=?", (ADMIN_ROLE,)).fetchone()
+    if exists:
+        return
+    username = os.getenv("ADMIN_USERNAME", "admin").strip() or "admin"
+    password = os.getenv("ADMIN_PASSWORD", "") or "admin123"
+    db.execute("INSERT IGNORE INTO users (username, password, divisi, email) VALUES (?,?,?,?)",
+               (username, generate_password_hash(password), ADMIN_ROLE, ""))
+    db.commit()
+    print(f"[AUTH] Akun Admin dibuat: username '{username}'. Segera ganti passwordnya.")
+
+
 def migrate(db):
     extra_columns = [
         ("users", "email", "VARCHAR(255) DEFAULT ''"),
@@ -620,7 +646,7 @@ def migrate(db):
         ("submissions", "customer", "TEXT DEFAULT ''"),
         ("submissions", "model_name", "TEXT DEFAULT ''"),
         ("submissions", "partnumber", "TEXT DEFAULT ''"),
-        ("submissions", "category", "TEXT DEFAULT 'Chasis'"),
+        ("submissions", "category", "TEXT DEFAULT 'Chassis'"),
         ("submissions", "kondisi", "TEXT DEFAULT ''"),
         ("submissions", "due_date", "TEXT DEFAULT ''"),
         ("submissions", "year", "INT"),
@@ -666,6 +692,12 @@ def migrate(db):
         );
         """
     )
+   
+    for _tbl in ("model_partlists", "parts", "submissions", "rfq_notes"):
+        try:
+            db.execute(f"UPDATE IGNORE {_tbl} SET category='Chassis' WHERE category='Chasis'")
+        except Error:
+            pass
     db.execute(
         """INSERT IGNORE INTO model_partlists
            (customer_id, model_name, category, year, partlist_status, partlist_done, partlist_total, partlist_note, created_at)
@@ -736,6 +768,30 @@ def sync_redraw_progress(db, part_id):
         status = "Open"
     db.execute("UPDATE parts SET redraw_status=?, redraw_done=?, redraw_total=? WHERE id=?",
                (status, done, total, part_id))
+def sync_review_progress(db, part_id):
+    """Hitung ulang progress Drawing Review: kebutuhan = review_total (minimal 1),
+    selesai = jumlah file Drawing Review yang sudah di-approve (maksimal sebesar kebutuhan)."""
+    part = db.execute("SELECT review_total FROM parts WHERE id=?", (part_id,)).fetchone()
+    if not part:
+        return
+    total = max(int(part["review_total"] or 1), 1)
+    approved = db.execute(
+        "SELECT COUNT(*) c FROM redraw_files WHERE part_id=? AND progress_type='Drawing Review' AND approval_status='Sudah Approval'",
+        (part_id,),
+    ).fetchone()["c"]
+    uploaded = db.execute(
+        "SELECT COUNT(*) c FROM redraw_files WHERE part_id=? AND progress_type='Drawing Review'",
+        (part_id,),
+    ).fetchone()["c"]
+    done = min(int(approved), total)
+    if done >= total:
+        status = "Close"
+    elif uploaded > 0:
+        status = "Pending"
+    else:
+        status = "Open"
+    db.execute("UPDATE parts SET review_status=?, review_done=?, review_total=? WHERE id=?",
+               (status, done, total, part_id))
 def overall_progress(row):
     total = int(row["total_parts"] or 0)
     done = int(row["completed_parts"] or 0)
@@ -760,9 +816,9 @@ def seed(db):
     random.seed(42)
     cur = db.cursor()
     users = [
-        ("marketing1", "marketing123", "Marketing", ""),
-        ("engineer1", "engineer123", "Engineer", ""),
-        ("purchasing1", "purchasing123", "Purchasing", ""),
+        ("marketing1", generate_password_hash("marketing123"), "Marketing", ""),
+        ("engineer1", generate_password_hash("engineer123"), "Engineer", ""),
+        ("purchasing1", generate_password_hash("purchasing123"), "Purchasing", ""),
     ]
     cur.executemany("INSERT INTO users (username, password, divisi, email) VALUES (?,?,?,?)", users)
     customer_names = ["PT A", "PT B", "PT C", "PT D"]
@@ -810,7 +866,7 @@ def seed(db):
                         review_status, review_done, review_total,
                         partlist_status, partlist_done, partlist_total,
                         quick_note
-                    ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
+                    ) VALUES (?,?,?,?,?,?,?, ?,?,?, ?,?,?, ?,?,?, ?,?,?, ?)""",
                     (
                         customer_id, model_name, category, 2026, month, str(p),
                         f"2026-{MONTHS.index(month)+1:02d}-{(i % 25)+1:02d}",
@@ -833,6 +889,58 @@ def login_required(view):
 def current_divisi():
     return session.get("divisi")
 
+
+ADMIN_ENDPOINTS = {"admin_users", "admin_user_create", "admin_user_edit",
+                   "admin_user_delete", "logout", "login", "static"}
+
+
+@app.before_request
+def enforce_session_and_roles():
+    """1) Sesi harus cocok dengan data user terbaru (user dihapus / role diubah Admin
+    langsung berlaku). 2) Akun Admin hanya boleh membuka halaman kelola user."""
+    endpoint = request.endpoint
+    if endpoint in (None, "static", "login"):
+        return None
+    if "username" in session:
+        user = None
+        if session.get("user_id"):
+            user = get_db().execute(
+                "SELECT id, username, divisi FROM users WHERE id=?", (session["user_id"],)
+            ).fetchone()
+        if not user:
+            session.clear()
+            flash("Sesi berakhir. Silakan login kembali.", "error")
+            return redirect(url_for("login"))
+        session["username"] = user["username"]
+        session["divisi"] = user["divisi"]
+        if user["divisi"] == ADMIN_ROLE and endpoint not in ADMIN_ENDPOINTS:
+            return redirect(url_for("admin_users"))
+    return None
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if "username" not in session:
+            return redirect(url_for("login", next=request.path))
+        if current_divisi() != ADMIN_ROLE:
+            flash("Halaman ini hanya untuk Admin.", "error")
+            return redirect(url_for("dashboard"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def can_download_approval(approval_status):
+    """Aturan download dokumen progress (Redraw, Drawing Review, Partlist):
+    Engineer & Marketing -> semua file (sudah/belum approval);
+    Purchasing (dan Management) -> hanya file yang sudah di-approve Engineering."""
+    divisi = current_divisi()
+    if divisi in ("Engineer", "Marketing"):
+        return True
+    if divisi in ("Purchasing", "Management"):
+        return approval_status == "Sudah Approval"
+    return False
+
 def can_edit(field):
     divisi = current_divisi()
     if field in ("review", "redraw", "partlist"):
@@ -840,10 +948,21 @@ def can_edit(field):
     return False
 def can_upload():
     return current_divisi() == "Engineer"
-app.jinja_env.globals.update(can_edit=can_edit, fmt_status=fmt_status)
+app.jinja_env.globals.update(can_edit=can_edit, fmt_status=fmt_status, can_download_approval=can_download_approval)
 
 def other_divisions(actor_division):
     return [d for d in ("Marketing", "Engineer", "Purchasing") if d != actor_division]
+def progress_recipients(approved):
+    """Aturan penerima notifikasi dokumen progress (Redraw, Drawing Review, Partlist):
+    Marketing selalu dapat notif (baik sudah maupun belum approval);
+    Purchasing hanya dapat notif jika dokumen sudah approval."""
+    return ["Marketing", "Purchasing"] if approved else ["Marketing"]
+
+
+def recipient_label(approved):
+    return "Marketing & Purchasing" if approved else "Marketing"
+
+
 def notify_new_rfq(part, filename, marketing_note='', recipients=None):
     actor = current_divisi()
     recipients = recipients or ["Engineer"]
@@ -866,12 +985,12 @@ Informasi selengkapnya silakan cek pada menu progress RFQ pada Monitoring RFQ.
         recipients,
     )
 
-def notify_redraw_requirement(part, progress_text):
+def notify_redraw_requirement(part, progress_text, jenis="Redraw"):
     if current_divisi() != "Engineer":
         return False
     return send_email_notification(
-        f"[Monitoring RFQ] Redraw diperbarui - Model {part['model_name']} dengan Partnumber {part['part_no']}",
-        f"""Engineering telah memperbarui kebutuhan Redraw.
+        f"[Monitoring RFQ] {jenis} diperbarui - Model {part['model_name']} dengan Partnumber {part['part_no']}",
+        f"""Engineering telah memperbarui kebutuhan {jenis}.
 
 Customer : {get_customer_name(part['customer_id'])}
 Model    : {part['model_name']}
@@ -885,12 +1004,12 @@ PIC : {session.get('username', '-')} (Engineer)
 
 informasi selengkapnya silakan cek menu Progress Redraw untuk melihat detail.
 """,
-        ["Marketing", "Purchasing"],
+        progress_recipients(False),
     )
 
 def notify_progress_approval(part, progress_type, filename, approved):
     actor = current_divisi()
-    recipients = ["Marketing", "Purchasing"]
+    recipients = progress_recipients(approved)
     status = "Sudah Approval" if approved else "Belum Approval"
     return send_email_notification(
         f"[Monitoring RFQ] {progress_type} - {status} - Model {part['model_name']} dengan Partnumber {part['part_no']}",
@@ -909,8 +1028,9 @@ Informasi selengkapnya silakan cek menu Progress RFQ untuk melihat status terbar
         recipients,
     )
 
-def notify_file_submission(part, progress_type, filename):
+def notify_file_submission(part, progress_type, filename, approved=False):
     actor = current_divisi()
+    status = "Sudah Approval" if approved else "Belum Approval"
     return send_email_notification(
         f"[Monitoring RFQ] {progress_type} - File baru disubmit - Model {part['model_name']} dengan Partnumber {part['part_no']}",
         f"""File {progress_type} baru telah disubmit.
@@ -920,11 +1040,12 @@ Model    : {part['model_name']}
 Partnumber : {part['part_no']}
 Progress : {progress_type}
 File     : {filename}
+Status   : {status}
 PIC : {session.get('username', '-')} ({actor})
 
 Informasi selengkapnya silakan cek menu Progress untuk melihat detail.
 """,
-        ["Marketing", "Purchasing"],
+        progress_recipients(approved),
     )
 
 def parse_note_targets(actor_division, always_include=None):
@@ -996,128 +1117,150 @@ def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        divisi = request.form.get("divisi", "")
         db = get_db()
         user = db.execute(
-            "SELECT * FROM users WHERE username=? AND divisi=?",
-            (username, divisi),
+            "SELECT * FROM users WHERE username=?",
+            (username,),
         ).fetchone()
         if user and verify_password(user["password"], password):
             if not user["password"].startswith(("scrypt:", "pbkdf2:")):
                 db.execute("UPDATE users SET password=? WHERE id=?",
                            (generate_password_hash(password), user["id"]))
                 db.commit()
+            session.clear()
+            session["user_id"] = user["id"]
             session["username"] = user["username"]
             session["divisi"] = user["divisi"]
-            nxt = request.args.get("next") or url_for("dashboard")
+            if user["divisi"] == ADMIN_ROLE:
+                return redirect(url_for("admin_users"))
+            nxt = request.args.get("next") or ""
+            if not nxt.startswith("/") or nxt.startswith("//"):
+                nxt = url_for("dashboard")
             return redirect(nxt)
-        flash("Username, password, atau divisi salah.", "error")
-    return render_template("login.html", divisions=DIVISIONS, group_labels=GROUP_LABELS)
+        flash("Username atau password salah.", "error")
+    return render_template("login.html", divisions=ROLES, group_labels=GROUP_LABELS)
 
 
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    form = {"username": "", "email": "", "divisi": ""}
+def validate_user_form(db, username, email, divisi, password, user_id=None, password_required=True):
+    """Validasi form tambah/ubah user. Mengembalikan pesan error atau None."""
+    if not username:
+        return "Username wajib diisi."
+    if len(username) > 100 or any(ch.isspace() for ch in username):
+        return "Username maksimal 100 karakter dan tidak boleh mengandung spasi."
+    if divisi not in ROLES:
+        return "Pilih role / grup user yang valid."
+    if divisi != ADMIN_ROLE and not email:
+        return "Email wajib diisi untuk user grup (dipakai untuk notifikasi)."
+    if email and not EMAIL_RE.match(email):
+        return "Format email tidak valid."
+    if password_required or password:
+        if len(password) < 6:
+            return "Password minimal 6 karakter."
+    dup_id = user_id if user_id is not None else 0
+    if db.execute("SELECT 1 FROM users WHERE username=? AND id<>?", (username, dup_id)).fetchone():
+        return "Username sudah dipakai."
+    if email and db.execute("SELECT 1 FROM users WHERE LOWER(email)=LOWER(?) AND id<>?",
+                            (email, dup_id)).fetchone():
+        return "Email sudah terdaftar."
+    return None
+
+
+def count_admins(db, exclude_id=0):
+    return db.execute("SELECT COUNT(*) AS c FROM users WHERE divisi=? AND id<>?",
+                      (ADMIN_ROLE, exclude_id)).fetchone()["c"]
+
+
+@app.route("/admin/users")
+@admin_required
+def admin_users():
+    db = get_db()
+    users = db.execute("SELECT id, username, divisi, email FROM users").fetchall()
+    order = {d: i for i, d in enumerate(ROLES)}
+    users = sorted(users, key=lambda u: (order.get(u["divisi"], 99), u["username"].lower()))
+    counts = {r: 0 for r in ROLES}
+    for u in users:
+        counts[u["divisi"]] = counts.get(u["divisi"], 0) + 1
+    form = {"username": request.args.get("username", ""), "email": request.args.get("email", ""),
+            "divisi": request.args.get("divisi", "")}
+    return render_template("admin_users.html", users=users, roles=ROLES, counts=counts,
+                           group_labels=GROUP_LABELS, form=form, me=session.get("user_id"))
+
+
+@app.route("/admin/users/create", methods=["POST"])
+@admin_required
+def admin_user_create():
+    db = get_db()
+    username = request.form.get("username", "").strip()
+    email = request.form.get("email", "").strip()
+    divisi = request.form.get("divisi", "")
+    password = request.form.get("password", "")
+    error = validate_user_form(db, username, email, divisi, password)
+    if error:
+        flash(error, "error")
+        return redirect(url_for("admin_users", username=username, email=email, divisi=divisi))
+    db.execute("INSERT INTO users (username, password, divisi, email) VALUES (?,?,?,?)",
+               (username, generate_password_hash(password), divisi, email))
+    db.commit()
+    flash(f"User '{username}' berhasil dibuat di grup {GROUP_LABELS.get(divisi, divisi)}.", "success")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/users/<int:user_id>", methods=["GET", "POST"])
+@admin_required
+def admin_user_edit(user_id):
+    db = get_db()
+    user = db.execute("SELECT id, username, divisi, email FROM users WHERE id=?", (user_id,)).fetchone()
+    if not user:
+        flash("User tidak ditemukan.", "error")
+        return redirect(url_for("admin_users"))
     if request.method == "POST":
-        form["username"] = request.form.get("username", "").strip()
-        form["email"] = request.form.get("email", "").strip()
-        form["divisi"] = request.form.get("divisi", "")
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip()
+        divisi = request.form.get("divisi", "")
         password = request.form.get("password", "")
-        confirm = request.form.get("confirm_password", "")
-        db = get_db()
-        error = None
-        if not form["username"] or not password:
-            error = "Username dan password wajib diisi."
-        elif form["divisi"] not in DIVISIONS:
-            error = "Pilih grup user (role) yang valid."
-        elif not EMAIL_RE.match(form["email"]):
-            error = "Format email tidak valid."
-        elif len(password) < 6:
-            error = "Password minimal 6 karakter."
-        elif password != confirm:
-            error = "Konfirmasi password tidak sama."
-        elif db.execute("SELECT 1 FROM users WHERE username=?",
-                        (form["username"],)).fetchone():
-            error = "Username sudah dipakai."
-        elif db.execute("SELECT 1 FROM users WHERE LOWER(email)=LOWER(?)",
-                        (form["email"],)).fetchone():
-            error = "Email sudah terdaftar."
+        error = validate_user_form(db, username, email, divisi, password,
+                                   user_id=user_id, password_required=False)
+        if not error and user["divisi"] == ADMIN_ROLE and divisi != ADMIN_ROLE \
+                and count_admins(db, exclude_id=user_id) == 0:
+            error = "Tidak bisa mengubah role: ini satu-satunya akun Admin."
         if error:
             flash(error, "error")
+            user = dict(user, username=username, email=email, divisi=divisi)
         else:
-            db.execute(
-                "INSERT INTO users (username, password, divisi, email) VALUES (?,?,?,?)",
-                (form["username"], generate_password_hash(password),
-                 form["divisi"], form["email"]),
-            )
+            db.execute("UPDATE users SET username=?, email=?, divisi=? WHERE id=?",
+                       (username, email, divisi, user_id))
+            if password:
+                db.execute("UPDATE users SET password=? WHERE id=?",
+                           (generate_password_hash(password), user_id))
             db.commit()
-            flash(f"Registrasi berhasil. Anda masuk ke grup {GROUP_LABELS[form['divisi']]}. Silakan login.", "success")
-            return redirect(url_for("login"))
-    return render_template("register.html", divisions=DIVISIONS,
-                           group_labels=GROUP_LABELS, form=form)
+            flash(f"User '{username}' berhasil diperbarui."
+                  + (" Password diganti." if password else ""), "success")
+            return redirect(url_for("admin_users"))
+    return render_template("admin_user_edit.html", user=user, roles=ROLES, group_labels=GROUP_LABELS)
+
+
+@app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def admin_user_delete(user_id):
+    db = get_db()
+    user = db.execute("SELECT id, username, divisi FROM users WHERE id=?", (user_id,)).fetchone()
+    if not user:
+        flash("User tidak ditemukan.", "error")
+    elif user["id"] == session.get("user_id"):
+        flash("Anda tidak bisa menghapus akun Anda sendiri.", "error")
+    elif user["divisi"] == ADMIN_ROLE and count_admins(db, exclude_id=user_id) == 0:
+        flash("Tidak bisa menghapus satu-satunya akun Admin.", "error")
+    else:
+        db.execute("DELETE FROM users WHERE id=?", (user_id,))
+        db.commit()
+        flash(f"User '{user['username']}' dihapus. Email-nya tidak menerima notifikasi grup lagi.", "success")
+    return redirect(url_for("admin_users"))
 
 
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
-
-
-@app.route("/profile", methods=["GET", "POST"])
-@login_required
-def profile():
-    db = get_db()
-    user = db.execute(
-        "SELECT * FROM users WHERE username=? AND divisi=?",
-        (session["username"], session["divisi"]),
-    ).fetchone()
-    if request.method == "POST":
-        email = request.form.get("email", "").strip()
-        if not EMAIL_RE.match(email):
-            flash("Format email tidak valid.", "error")
-        elif db.execute("SELECT 1 FROM users WHERE LOWER(email)=LOWER(?) AND id<>?",
-                        (email, user["id"])).fetchone():
-            flash("Email sudah dipakai user lain.", "error")
-        else:
-            db.execute("UPDATE users SET email=? WHERE id=?", (email, user["id"]))
-            db.commit()
-            flash("Email berhasil diperbarui.", "success")
-        return redirect(url_for("profile"))
-    return render_template("profile.html", user=user,
-                           group_label=GROUP_LABELS.get(user["divisi"], user["divisi"]))
-
-
-@app.route("/profile/delete", methods=["POST"])
-@login_required
-def delete_account():
-    """Hapus akun sendiri (mis. pindah departemen / resign). Setelah dihapus,
-    email user tidak lagi menerima notifikasi grup. Data riwayat (upload, note,
-    judgement) tetap ada karena hanya menyimpan nama user."""
-    db = get_db()
-    user = db.execute(
-        "SELECT * FROM users WHERE username=? AND divisi=?",
-        (session["username"], session["divisi"]),
-    ).fetchone()
-    if not user:
-        session.clear()
-        return redirect(url_for("login"))
-    if not verify_password(user["password"], request.form.get("password", "")):
-        flash("Password salah. Akun tidak dihapus.", "error")
-        return redirect(url_for("profile"))
-    if user["divisi"] == "Management":
-        others = db.execute(
-            "SELECT COUNT(*) AS c FROM users WHERE divisi='Management' AND id<>?",
-            (user["id"],),
-        ).fetchone()["c"]
-        if not others:
-            flash("Anda satu-satunya anggota Management, akun tidak bisa dihapus.", "error")
-            return redirect(url_for("profile"))
-    db.execute("DELETE FROM users WHERE id=?", (user["id"],))
-    db.commit()
-    session.clear()
-    flash("Akun berhasil dihapus.", "success")
-    return redirect(url_for("login"))
-
 
 
 
@@ -1442,13 +1585,18 @@ def dashboard_rfq_model_detail(customer_id, model_name, year):
         """SELECT p.*, mp.id AS model_partlist_id,
                  COALESCE(mp.partlist_status, 'Open') AS model_partlist_status,
                  COALESCE(mp.partlist_done, 0) AS model_partlist_done,
-                 COALESCE(mp.partlist_total, 1) AS model_partlist_total
+                 COALESCE(mp.partlist_total, 1) AS model_partlist_total,
+                 mpf.original_filename AS partlist_file_name,
+                 mpf.stored_filename AS partlist_file_stored,
+                 mpf.approval_status AS partlist_file_status
            FROM parts p
            LEFT JOIN model_partlists mp
              ON mp.customer_id=p.customer_id
             AND mp.model_name=p.model_name
             AND mp.category=p.category
             AND mp.year=p.year
+           LEFT JOIN model_partlist_files mpf
+             ON mpf.id = (SELECT MAX(x.id) FROM model_partlist_files x WHERE x.model_partlist_id=mp.id)
            WHERE p.customer_id=? AND p.model_name=? AND p.year=?
            ORDER BY p.category, p.part_no""",
         (customer_id, model_name, year),
@@ -1577,11 +1725,11 @@ def months_chart(month):
 @login_required
 def progress():
     db = get_db()
-    category = request.args.get("category", "Chasis")
+    category = request.args.get("category", "Chassis")
     selected_month = request.args.get("month", "")
     selected_year = request.args.get("year", "", type=int)
     if category not in CATEGORIES:
-        category = "Chasis"
+        category = "Chassis"
     if selected_month and selected_month not in MONTHS:
         selected_month = ""
 
@@ -1619,6 +1767,162 @@ def progress():
                            models=models, selected_month=selected_month, selected_year=selected_year)
 
 
+def _part_sort_key(part_no):
+    s = str(part_no or "")
+    return (0, int(s), "") if s.isdigit() else (1, 0, s)
+
+
+def render_progress_documents(db, category, customer, selected_month, selected_year, where, params, selected_part_id=None):
+    """Tampilan Marketing / Purchasing / Management: hanya tabel dokumen progress
+    (Redraw, Drawing Review, Partlist) tanpa form upload."""
+    part_rows = db.execute(
+        f"SELECT p.id, p.model_name, p.part_no, p.due_date, p.year, p.finish_good, p.komponen, p.drawing_tooling, p.drawing_pipa, p.review_total FROM parts p {where}", params
+    ).fetchall()
+    part_map = {r["id"]: r for r in part_rows}
+    model_keys = {(r["model_name"], r["year"]) for r in part_rows}
+    docs = []
+
+    note_counts = {}
+    first_part_of_model = {}
+    for r in part_rows:
+        first_part_of_model.setdefault((r["model_name"], r["year"]), r["id"])
+    if part_map:
+        marks0 = ",".join(["?"] * len(part_map))
+        for r in db.execute(f"SELECT part_id, COUNT(*) AS c FROM notes WHERE part_id IN ({marks0}) GROUP BY part_id",
+                            list(part_map)).fetchall():
+            note_counts[r["part_id"]] = r["c"]
+
+    def add(doc_src, model, part_no, due_date, jenis, url_endpoint, feedback_part_id):
+        approved = doc_src["approval_status"] == "Sudah Approval"
+        docs.append({
+            "model": model, "part_no": part_no, "due_date": due_date or "-",
+            "group": DOC_GROUPS.get(jenis, jenis), "jenis": jenis,
+            "filename": doc_src["original_filename"],
+            "approved": approved,
+            "uploaded_by": doc_src["uploaded_by"], "created_at": doc_src["created_at"],
+            "can_download": can_download_approval(doc_src["approval_status"]),
+            "url": url_for(url_endpoint, stored_filename=doc_src["stored_filename"]),
+            "feedback_part_id": feedback_part_id,
+            "note_count": note_counts.get(feedback_part_id, 0),
+            "placeholder": False,
+        })
+
+    if part_map:
+        ids = list(part_map)
+        marks = ",".join(["?"] * len(ids))
+        for f in db.execute(
+            f"SELECT * FROM redraw_files WHERE part_id IN ({marks}) ORDER BY id", ids
+        ).fetchall():
+            p = part_map[f["part_id"]]
+            add(f, p["model_name"], p["part_no"], p["due_date"], f["progress_type"],
+                "download_redraw_file", p["id"])
+        for f in db.execute(
+            """SELECT f.*, mp.model_name AS mp_model, mp.year AS mp_year
+               FROM model_partlist_files f
+               JOIN model_partlists mp ON mp.id=f.model_partlist_id
+               WHERE mp.customer_id=? AND mp.category=? ORDER BY f.id""",
+            (customer["id"], category),
+        ).fetchall():
+            if (f["mp_model"], f["mp_year"]) in model_keys:
+                add(f, f["mp_model"], "Semua P/N", "", "Partlist", "download_model_partlist_file",
+                    first_part_of_model[(f["mp_model"], f["mp_year"])])
+
+    redraw_cols = {"Finish Good": "finish_good", "Komponen": "komponen",
+                   "Drawing Tooling": "drawing_tooling", "Drawing Pipa": "drawing_pipa"}
+    uploaded = {}
+    for d in docs:
+        uploaded[(d["feedback_part_id"], d["jenis"])] = uploaded.get((d["feedback_part_id"], d["jenis"]), 0) + 1
+    for r in part_rows:
+        for jenis, col in redraw_cols.items():
+            raw_qty = str(r[col] or "")
+            need = int(raw_qty) if raw_qty.isdigit() else 0
+            have = uploaded.get((r["id"], jenis), 0)
+            if need > have:
+                docs.append({
+                    "model": r["model_name"], "part_no": r["part_no"], "due_date": r["due_date"] or "-",
+                    "group": "Redraw", "jenis": jenis,
+                    "filename": f"Belum ada file ({have}/{need})", "approved": False,
+                    "uploaded_by": "", "created_at": "", "can_download": False, "url": "",
+                    "feedback_part_id": r["id"], "note_count": 0, "placeholder": True,
+                })
+    partlist_models = {d["model"] for d in docs if d["jenis"] == "Partlist"}
+    for r in part_rows:
+        need_rv = max(int(r["review_total"] or 1), 1)
+        have_rv = uploaded.get((r["id"], "Drawing Review"), 0)
+        if have_rv < need_rv:
+            docs.append({
+                "model": r["model_name"], "part_no": r["part_no"], "due_date": r["due_date"] or "-",
+                "group": "Drawing Review", "jenis": "Drawing Review",
+                "filename": f"Belum ada file ({have_rv}/{need_rv})", "approved": False,
+                "uploaded_by": "", "created_at": "", "can_download": False, "url": "",
+                "feedback_part_id": r["id"], "note_count": 0, "placeholder": True,
+            })
+    for (model_name, _year), first_id in first_part_of_model.items():
+        if model_name not in partlist_models:
+            docs.append({
+                "model": model_name, "part_no": "Semua P/N", "due_date": "-",
+                "group": "Partlist", "jenis": "Partlist",
+                "filename": "Belum ada file (0/1)", "approved": False,
+                "uploaded_by": "", "created_at": "", "can_download": False, "url": "",
+                "feedback_part_id": first_id, "note_count": 0, "placeholder": True,
+            })
+    docs.sort(key=lambda d: (d["model"], _part_sort_key(d["part_no"]),
+                             DOC_GROUP_ORDER.get(d["group"], 9),
+                             JENIS_ORDER.get(d["jenis"], 9), d["placeholder"], d["created_at"]))
+    with_docs = {d["feedback_part_id"] for d in docs if d["part_no"] != "Semua P/N"}
+    empty_parts = [{"part_id": r["id"], "model": r["model_name"], "part_no": r["part_no"],
+                    "due_date": r["due_date"] or "-", "note_count": note_counts.get(r["id"], 0)}
+                   for r in sorted(part_rows, key=lambda r: (r["model_name"], _part_sort_key(r["part_no"])))
+                   if r["id"] not in with_docs]
+    ordered_parts = sorted(part_rows, key=lambda r: (r["model_name"], _part_sort_key(r["part_no"])))
+    if selected_part_id not in part_map:
+        selected_part_id = ordered_parts[0]["id"] if ordered_parts else None
+    sel_part = db.execute("SELECT * FROM parts WHERE id=?", (selected_part_id,)).fetchone() if selected_part_id else None
+    notes_by_divisi = {d: [] for d in DIVISIONS}
+    if sel_part:
+        for n in db.execute("SELECT * FROM notes WHERE part_id=? ORDER BY id DESC", (selected_part_id,)).fetchall():
+            notes_by_divisi.setdefault(n["divisi"], []).append(n)
+    return render_template("progress_documents.html", category=category, categories=CATEGORIES,
+                           customer=customer, docs=docs, empty_parts=empty_parts,
+                           part=sel_part, selected_part_id=selected_part_id,
+                           notes_by_divisi=notes_by_divisi, divisions=DIVISIONS, selected_month=selected_month,
+                           selected_year=selected_year)
+
+
+def render_progress_viewer(db, category, customer, selected_month, selected_year, where, params):
+    """Tampilan Marketing / Purchasing / Management: tabel P/N dengan kolom Redraw, Drawing Review, Partlist.
+    Redraw & Drawing Review membuka tabel file (status + download); Partlist (1 file per model)
+    langsung berupa link download pada nama file."""
+    raw_parts = db.execute(
+        f"""SELECT p.*, mp.id AS model_partlist_id,
+                  mpf.original_filename AS partlist_file_name,
+                  mpf.stored_filename AS partlist_file_stored,
+                  mpf.approval_status AS partlist_file_status
+           FROM parts p
+           LEFT JOIN model_partlists mp
+             ON mp.customer_id=p.customer_id AND mp.model_name=p.model_name AND mp.category=p.category AND mp.year=p.year
+           LEFT JOIN model_partlist_files mpf
+             ON mpf.id = (SELECT MAX(x.id) FROM model_partlist_files x WHERE x.model_partlist_id=mp.id)
+           {where}
+           ORDER BY p.model_name, p.part_no""",
+        params,
+    ).fetchall()
+    parts = []
+    model_counts = {}
+    for r in raw_parts:
+        model_counts[r["model_name"]] = model_counts.get(r["model_name"], 0) + 1
+    seen = set()
+    for r in raw_parts:
+        item = dict(r)
+        item["show_partlist"] = r["model_name"] not in seen
+        item["model_span"] = model_counts[r["model_name"]]
+        seen.add(r["model_name"])
+        parts.append(item)
+    return render_template("progress_viewer.html", category=category, categories=CATEGORIES,
+                           customer=customer, parts=parts,
+                           selected_month=selected_month, selected_year=selected_year)
+
+
 @app.route("/progress/<category>/<int:customer_id>")
 @login_required
 def progress_model(category, customer_id):
@@ -1642,6 +1946,14 @@ def progress_model(category, customer_id):
     if selected_month:
         where += " AND p.month=?"
         params.append(selected_month)
+
+    if current_divisi() in ("Marketing", "Purchasing", "Management"):
+        return render_progress_viewer(db, category, customer, selected_month,
+                                      selected_year, where, params)
+    if current_divisi() != "Engineer":
+        return render_progress_documents(db, category, customer, selected_month,
+                                         selected_year, where, params,
+                                         selected_part_id=request.args.get("part", type=int))
 
     raw_parts = db.execute(
         f"""SELECT p.*, mp.id AS model_partlist_id,
@@ -1683,6 +1995,8 @@ def model_partlist_detail(model_partlist_id):
         flash("Partlist model tidak ditemukan.", "error")
         return redirect(url_for("progress"))
     customer = db.execute("SELECT * FROM customers WHERE id=?", (mp['customer_id'],)).fetchone()
+    if current_divisi() != "Engineer":
+        return redirect(url_for("progress_model", category=mp["category"], customer_id=mp["customer_id"]))
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -1731,15 +2045,17 @@ Model    : {mp['model_name']}
 Kategori : {mp['category']}
 Progress : Partlist
 File     : {original_name}
-Diupload oleh : {session.get('username', '-')} ({current_divisi()})
+PIC : {session.get('username', '-')} ({current_divisi()})
+
+Status   : Belum Approval
 
 Silakan cek menu Progress untuk melihat detail.
 """,
-                    ["Marketing", "Purchasing"],
+                    progress_recipients(False),
                 )
                 db.commit()
                 if email_sent:
-                    flash("File Partlist berhasil diupload. Notifikasi email terkirim ke Marketing & Purchasing.", "success")
+                    flash("File Partlist berhasil diupload. Notifikasi email terkirim ke Marketing.", "success")
                 else:
                     flash("File Partlist berhasil diupload, tetapi email notifikasi GAGAL terkirim. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
                 return redirect(url_for("model_partlist_detail", model_partlist_id=model_partlist_id, month=request.args.get("month", "")))
@@ -1768,7 +2084,7 @@ Diubah oleh : {session.get('username', '-')} ({current_divisi()})
 
 Silakan cek menu Progress untuk melihat status terbaru.
 """,
-                    ["Marketing", "Purchasing"],
+                    progress_recipients(True),
                 )
                 flash(
                     "Status diubah ke Sudah Approval. Notifikasi email terkirim ke Marketing & Purchasing."
@@ -1794,10 +2110,10 @@ Diubah oleh : {session.get('username', '-')} ({current_divisi()})
 
 Silakan cek menu Progress untuk melihat status terbaru.
 """,
-                    ["Marketing", "Purchasing"],
+                    progress_recipients(False),
                 )
                 flash(
-                    "Status diubah ke Belum Approval. Notifikasi email terkirim ke Marketing & Purchasing."
+                    "Status diubah ke Belum Approval. Notifikasi email terkirim ke Marketing."
                     if email_sent else
                     "Status diubah ke Belum Approval, tetapi email notifikasi GAGAL terkirim. Cek email grup divisi di .env dan konfigurasi SMTP.",
                     "success" if email_sent else "warning",
@@ -1823,10 +2139,14 @@ Silakan cek menu Progress untuk melihat status terbaru.
 @login_required
 def download_model_partlist_file(stored_filename):
     db = get_db()
-    row = db.execute("SELECT original_filename FROM model_partlist_files WHERE stored_filename=?", (stored_filename,)).fetchone()
+    row = db.execute("SELECT original_filename, approval_status FROM model_partlist_files WHERE stored_filename=?", (stored_filename,)).fetchone()
+    if not row:
+        abort(404)
+    if not can_download_approval(row["approval_status"]):
+        flash("File ini belum di-approve Engineering, belum bisa didownload.", "error")
+        return redirect(request.referrer or url_for("progress"))
     return send_from_directory(app.config["UPLOAD_FOLDER"], stored_filename,
-                               as_attachment=True,
-                               download_name=row['original_filename'] if row else stored_filename)
+                               as_attachment=True, download_name=row['original_filename'])
 
 
 @app.route("/redraw/<int:part_id>", methods=["GET", "POST"])
@@ -1837,6 +2157,10 @@ def redraw_detail(part_id):
     if not part:
         flash("Data tidak ditemukan.", "error")
         return redirect(url_for("progress"))
+    if current_divisi() != "Engineer":
+        if current_divisi() not in DIVISIONS or (
+                request.method == "POST" and request.form.get("action") not in ("add_note", "remove_note")):
+            return redirect(url_for("progress_model", category=part["category"], customer_id=part["customer_id"]))
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -1859,29 +2183,24 @@ def redraw_detail(part_id):
                 f"Drawing Pipa: {updated_part['drawing_pipa'] or 0}"
             )
             if email_sent:
-                flash("Kebutuhan Redraw berhasil disimpan. Notifikasi email terkirim ke Marketing & Purchasing.", "success")
+                flash("Kebutuhan Redraw berhasil disimpan. Notifikasi email terkirim ke Marketing.", "success")
             elif email_sent is False and current_divisi() == "Engineer":
                 flash("Kebutuhan Redraw berhasil disimpan, tetapi email notifikasi GAGAL terkirim. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
             else:
                 flash("Kebutuhan Redraw berhasil disimpan.", "success")
         elif action == "save_review" and can_edit("review"):
-            new_status = request.form.get("review_status", part["review_status"])
-            db.execute(
-                "UPDATE parts SET review_status=?, review_done=?, review_total=? WHERE id=?",
-                (
-                    new_status,
-                    1 if request.form.get("review_done", part["review_done"], type=int) > 0 else 0,
-                    1,
-                    part_id,
-                ),
-            )
+            new_total = max(request.form.get("review_total", 1, type=int) or 1, 1)
+            db.execute("UPDATE parts SET review_total=? WHERE id=?", (new_total, part_id))
+            sync_review_progress(db, part_id)
             db.commit()
             updated_part = db.execute("SELECT * FROM parts WHERE id=?", (part_id,)).fetchone()
-            email_sent = notify_progress_approval(updated_part, "Drawing Review", "-", new_status == "Sudah Approval")
+            email_sent = notify_redraw_requirement(updated_part, f"Drawing Review: {updated_part['review_total']}", "Drawing Review")
             if email_sent:
-                flash("Drawing Review berhasil disimpan. Notifikasi email terkirim ke Marketing & Purchasing.", "success")
+                flash("Kebutuhan Drawing Review berhasil disimpan. Notifikasi email terkirim ke Marketing.", "success")
+            elif email_sent is False and current_divisi() == "Engineer":
+                flash("Kebutuhan Drawing Review berhasil disimpan, tetapi email notifikasi GAGAL terkirim. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
             else:
-                flash("Drawing Review berhasil disimpan, tetapi email notifikasi GAGAL terkirim. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
+                flash("Kebutuhan Drawing Review berhasil disimpan.", "success")
         elif action == "save_partlist" and can_edit("partlist"):
             new_status = request.form.get("partlist_status", part["partlist_status"])
             db.execute(
@@ -1899,7 +2218,7 @@ def redraw_detail(part_id):
             updated_part = db.execute("SELECT * FROM parts WHERE id=?", (part_id,)).fetchone()
             email_sent = notify_progress_approval(updated_part, "Partlist", "-", new_status == "Sudah Approval")
             if email_sent:
-                flash("Partlist berhasil disimpan. Notifikasi email terkirim ke Marketing & Purchasing.", "success")
+                flash(f"Partlist berhasil disimpan. Notifikasi email terkirim ke {recipient_label(new_status == 'Sudah Approval')}.", "success")
             else:
                 flash("Partlist berhasil disimpan, tetapi email notifikasi GAGAL terkirim. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
         elif action == "save_quick_note":
@@ -1944,14 +2263,17 @@ def redraw_detail(part_id):
                     )
                     if progress_type in ("Finish Good", "Komponen", "Drawing Tooling", "Drawing Pipa"):
                         sync_redraw_progress(db, part_id)
+                    elif progress_type == "Drawing Review":
+                        sync_review_progress(db, part_id)
                     db.commit()
                     email_sent = None
                     if current_divisi() == "Engineer" and progress_type in ("Finish Good", "Komponen", "Drawing Tooling", "Drawing Pipa", "Drawing Review", "Partlist"):
-                        email_sent = notify_file_submission(part, progress_type, original_name)
+                        email_sent = notify_file_submission(part, progress_type, original_name, approval_status == "Sudah Approval")
+                    target_label = recipient_label(approval_status == "Sudah Approval")
                     if email_sent is False:
-                        flash(f"File '{original_name}' berhasil diupload ke {progress_type} ({approval_status}), tetapi email notifikasi GAGAL terkirim ke Marketing & Purchasing. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
+                        flash(f"File '{original_name}' berhasil diupload ke {progress_type} ({approval_status}), tetapi email notifikasi GAGAL terkirim ke {target_label}. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
                     elif email_sent is True:
-                        flash(f"File '{original_name}' berhasil diupload ke {progress_type} ({approval_status}). Notifikasi email terkirim ke Marketing & Purchasing.", "success")
+                        flash(f"File '{original_name}' berhasil diupload ke {progress_type} ({approval_status}). Notifikasi email terkirim ke {target_label}.", "success")
                     else:
                         flash(f"File '{original_name}' berhasil diupload ke {progress_type} ({approval_status}).", "success")
                     return redirect(url_for("redraw_upload_page", part_id=part_id, progress_type=progress_type, month=request.args.get("month", "")))
@@ -1970,6 +2292,8 @@ def redraw_detail(part_id):
                     db.execute("UPDATE redraw_files SET approval_status='Sudah Approval' WHERE id=? AND part_id=?", (file_id, part_id))
                     if row["progress_type"] in ("Finish Good", "Komponen", "Drawing Tooling", "Drawing Pipa"):
                         sync_redraw_progress(db, part_id)
+                    elif row["progress_type"] == "Drawing Review":
+                        sync_review_progress(db, part_id)
                     db.commit()
                     email_sent = notify_progress_approval(part, row["progress_type"], row["original_filename"], True)
                     flash(
@@ -1982,10 +2306,12 @@ def redraw_detail(part_id):
                     db.execute("UPDATE redraw_files SET approval_status='Belum Approval' WHERE id=? AND part_id=?", (file_id, part_id))
                     if row["progress_type"] in ("Finish Good", "Komponen", "Drawing Tooling", "Drawing Pipa"):
                         sync_redraw_progress(db, part_id)
+                    elif row["progress_type"] == "Drawing Review":
+                        sync_review_progress(db, part_id)
                     db.commit()
                     email_sent = notify_progress_approval(part, row["progress_type"], row["original_filename"], False)
                     flash(
-                        "File dipindahkan ke Belum Approval. Notifikasi email terkirim ke Marketing & Purchasing."
+                        "File dipindahkan ke Belum Approval. Notifikasi email terkirim ke Marketing."
                         if email_sent else
                         "File dipindahkan ke Belum Approval, tetapi email notifikasi GAGAL terkirim. Cek email grup divisi di .env dan konfigurasi SMTP.",
                         "success" if email_sent else "warning",
@@ -1998,6 +2324,8 @@ def redraw_detail(part_id):
                     db.execute("DELETE FROM redraw_files WHERE id=?", (file_id,))
                     if row["progress_type"] in ("Finish Good", "Komponen", "Drawing Tooling", "Drawing Pipa"):
                         sync_redraw_progress(db, part_id)
+                    elif row["progress_type"] == "Drawing Review":
+                        sync_review_progress(db, part_id)
                     db.commit()
                     flash("File dihapus.", "success")
         elif action == "add_note":
@@ -2009,9 +2337,7 @@ def redraw_detail(part_id):
             ]
             feedback_file = request.files.get("feedback_file")
 
-            if divisi == "Management":
-                flash("Management memberi keputusan lewat menu Judgement.", "error")
-            elif divisi not in DIVISIONS:
+            if divisi not in DIVISIONS:
                 flash("Divisi tidak valid untuk Note.", "error")
             elif not text and (not feedback_file or not feedback_file.filename):
                 flash("Isi catatan atau pilih file feedback terlebih dahulu.", "error")
@@ -2135,6 +2461,34 @@ Lampiran:
     initial_tab = request.args.get("tab", "redraw")
     if initial_tab not in ("redraw", "review", "partlist"):
         initial_tab = "redraw"
+    if current_divisi() in ("Marketing", "Purchasing", "Management"):
+        month_arg = request.args.get("month", "")
+        if initial_tab not in ("redraw", "review"):
+            return redirect(url_for("progress_model", category=part["category"],
+                                    customer_id=part["customer_id"], month=month_arg))
+        redraw_types = ("Finish Good", "Komponen", "Drawing Tooling", "Drawing Pipa")
+        wanted = redraw_types if initial_tab == "redraw" else ("Drawing Review",)
+        view_files = [f for t in wanted for f in reversed(progress_files) if f["progress_type"] == t]
+        need_summary = []
+        if initial_tab == "redraw":
+            for jenis, col in (("Finish Good", "finish_good"), ("Komponen", "komponen"),
+                               ("Drawing Tooling", "drawing_tooling"), ("Drawing Pipa", "drawing_pipa")):
+                raw_qty = str(part[col] or "")
+                need = int(raw_qty) if raw_qty.isdigit() else 0
+                have = len([f for f in progress_files if f["progress_type"] == jenis])
+                if need or have:
+                    need_summary.append((jenis, have, need))
+        else:
+            have = len([f for f in progress_files if f["progress_type"] == "Drawing Review"])
+            need_summary.append(("Drawing Review", have, max(int(part["review_total"] or 1), 1)))
+        return render_template(
+            "part_files.html", part=part, customer=customer, tab=initial_tab,
+            files=view_files, need_summary=need_summary, notes_by_divisi=notes_by_divisi,
+            divisions=DIVISIONS, selected_month=month_arg,
+        )
+    if current_divisi() != "Engineer":
+        return redirect(url_for("progress_model", category=part["category"],
+                                customer_id=part["customer_id"], part=part_id))
     return render_template(
         "reason_detail.html", part=part, notes_by_divisi=notes_by_divisi,
         divisions=DIVISIONS, customer=customer, initial_tab=initial_tab,
@@ -2144,6 +2498,11 @@ Lampiran:
 @app.route("/notes/download/<path:stored_filename>")
 @login_required
 def download_note_attachment(stored_filename):
+    if current_divisi() not in DIVISIONS:
+        abort(403)
+    if not get_db().execute("SELECT 1 FROM notes WHERE attachment_stored_filename=?",
+                            (stored_filename,)).fetchone():
+        abort(404)
     return send_from_directory(
         app.config["UPLOAD_FOLDER"],
         stored_filename,
@@ -2162,7 +2521,7 @@ def redraw_upload_page(part_id, progress_type):
     tab_name = "review" if progress_type == "Drawing Review" else ("partlist" if progress_type == "Partlist" else "redraw")
 
     if not can_edit(permission_field):
-        flash("Anda tidak memiliki akses untuk mengupload file pada progress ini.", "error")
+        flash("Upload file hanya tersedia untuk Engineering.", "error")
         return redirect(url_for("redraw_detail", part_id=part_id, tab=tab_name))
 
     db = get_db()
@@ -2197,14 +2556,7 @@ def redraw_upload_page(part_id, progress_type):
                 if progress_type in ("Finish Good", "Komponen", "Drawing Tooling", "Drawing Pipa"):
                     sync_redraw_progress(db, part_id)
                 elif progress_type == "Drawing Review":
-                    total = 1
-                    done = db.execute(
-                        "SELECT COUNT(*) c FROM redraw_files WHERE part_id=? AND progress_type=? AND approval_status='Sudah Approval'",
-                        (part_id, progress_type),
-                    ).fetchone()["c"]
-                    done = min(done, total) if total > 0 else done
-                    db.execute("UPDATE parts SET review_done=?, review_status=? WHERE id=?",
-                               (done, "Close" if total > 0 and done >= total else "Pending", part_id))
+                    sync_review_progress(db, part_id)
                 elif progress_type == "Partlist":
                     total = 1
                     done = db.execute(
@@ -2215,26 +2567,34 @@ def redraw_upload_page(part_id, progress_type):
                     db.execute("UPDATE parts SET partlist_done=?, partlist_status=? WHERE id=?",
                                (done, "Close" if total > 0 and done >= total else "Pending", part_id))
                 db.commit()
-                notify_progress_approval(part, progress_type, row["original_filename"], True)
-                flash("File berhasil di-approve.", "success")
+                email_sent = notify_progress_approval(part, progress_type, row["original_filename"], True)
+                if email_sent:
+                    flash("File berhasil di-approve. Notifikasi email terkirim ke Marketing & Purchasing.", "success")
+                else:
+                    flash("File berhasil di-approve, tetapi email notifikasi GAGAL terkirim. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
             elif action == "unapprove":
                 db.execute("UPDATE redraw_files SET approval_status='Belum Approval' WHERE id=?", (file_id,))
                 if progress_type in ("Finish Good", "Komponen", "Drawing Tooling", "Drawing Pipa"):
                     sync_redraw_progress(db, part_id)
-                elif progress_type in ("Drawing Review", "Partlist"):
+                elif progress_type == "Drawing Review":
+                    sync_review_progress(db, part_id)
+                elif progress_type == "Partlist":
                     approved = db.execute(
                         "SELECT COUNT(*) c FROM redraw_files WHERE part_id=? AND progress_type=? AND approval_status='Sudah Approval'",
                         (part_id, progress_type),
                     ).fetchone()["c"]
-                    field_done = "review_done" if progress_type == "Drawing Review" else "partlist_done"
-                    field_status = "review_status" if progress_type == "Drawing Review" else "partlist_status"
+                    field_done = "partlist_done"
+                    field_status = "partlist_status"
                     total = 1
                     done = min(approved, total) if total > 0 else approved
                     db.execute(f"UPDATE parts SET {field_done}=?, {field_status}=? WHERE id=?",
                                (done, "Close" if total > 0 and done >= total else "Pending", part_id))
                 db.commit()
-                notify_progress_approval(part, progress_type, row["original_filename"], False)
-                flash("Approval file dibatalkan.", "success")
+                email_sent = notify_progress_approval(part, progress_type, row["original_filename"], False)
+                if email_sent:
+                    flash("Approval file dibatalkan. Notifikasi email terkirim ke Marketing.", "success")
+                else:
+                    flash("Approval file dibatalkan, tetapi email notifikasi GAGAL terkirim. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
             else:
                 try:
                     os.remove(os.path.join(app.config["UPLOAD_FOLDER"], row["stored_filename"]))
@@ -2243,13 +2603,15 @@ def redraw_upload_page(part_id, progress_type):
                 db.execute("DELETE FROM redraw_files WHERE id=?", (file_id,))
                 if progress_type in ("Finish Good", "Komponen", "Drawing Tooling", "Drawing Pipa"):
                     sync_redraw_progress(db, part_id)
-                elif progress_type in ("Drawing Review", "Partlist"):
+                elif progress_type == "Drawing Review":
+                    sync_review_progress(db, part_id)
+                elif progress_type == "Partlist":
                     approved = db.execute(
                         "SELECT COUNT(*) c FROM redraw_files WHERE part_id=? AND progress_type=? AND approval_status='Sudah Approval'",
                         (part_id, progress_type),
                     ).fetchone()["c"]
-                    field_done = "review_done" if progress_type == "Drawing Review" else "partlist_done"
-                    field_status = "review_status" if progress_type == "Drawing Review" else "partlist_status"
+                    field_done = "partlist_done"
+                    field_status = "partlist_status"
                     total = 1
                     done = min(approved, total) if total > 0 else approved
                     db.execute(f"UPDATE parts SET {field_done}=?, {field_status}=? WHERE id=?",
@@ -2266,14 +2628,6 @@ def redraw_upload_page(part_id, progress_type):
         elif (size_error := validate_file_size(file)[1]) is not None:
             flash(size_error, "error")
         else:
-            if progress_type == "Drawing Review":
-                existing = db.execute(
-                    "SELECT id FROM redraw_files WHERE part_id=? AND progress_type=? LIMIT 1",
-                    (part_id, progress_type)
-                ).fetchone()
-                if existing:
-                    flash("Drawing Review untuk Partnumber ini sudah ada. Hapus file lama terlebih dahulu jika ingin menggantinya.", "error")
-                    return redirect(url_for("redraw_upload_page", part_id=part_id, progress_type=progress_type, month=request.args.get("month", "")))
             original_name = secure_filename(file.filename)
             stored_name = f"{uuid.uuid4().hex}_{original_name}"
             os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
@@ -2285,10 +2639,18 @@ def redraw_upload_page(part_id, progress_type):
                 (part_id, original_name, stored_name, "Belum Approval", session["username"], current_divisi(),
                  datetime.now().strftime("%d-%m-%Y %H:%M"), progress_type, progress_type),
             )
+            if progress_type == "Drawing Review":
+                sync_review_progress(db, part_id)
             db.commit()
+            email_sent = None
             if current_divisi() == "Engineer" and progress_type in ("Finish Good", "Komponen", "Drawing Tooling", "Drawing Pipa", "Drawing Review", "Partlist"):
-                notify_file_submission(part, progress_type, original_name)
-            flash(f"File {progress_type} berhasil diupload.", "success")
+                email_sent = notify_file_submission(part, progress_type, original_name, False)
+            if email_sent is True:
+                flash(f"File {progress_type} berhasil diupload. Notifikasi email terkirim ke Marketing.", "success")
+            elif email_sent is False:
+                flash(f"File {progress_type} berhasil diupload, tetapi email notifikasi GAGAL terkirim ke Marketing. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
+            else:
+                flash(f"File {progress_type} berhasil diupload.", "success")
             return redirect(url_for("redraw_upload_page", part_id=part_id, progress_type=progress_type, month=request.args.get("month", "")))
 
     files = db.execute(
@@ -2299,6 +2661,8 @@ def redraw_upload_page(part_id, progress_type):
     if progress_type in ("Finish Good", "Komponen", "Drawing Tooling", "Drawing Pipa"):
         field = {"Finish Good":"finish_good", "Komponen":"komponen", "Drawing Tooling":"drawing_tooling", "Drawing Pipa":"drawing_pipa"}[progress_type]
         required_qty = int(part[field] or 0) if str(part[field] or "").isdigit() else 0
+    elif progress_type == "Drawing Review":
+        required_qty = max(int(part["review_total"] or 1), 1)
     else:
         required_qty = 1
 
@@ -2320,16 +2684,15 @@ def redraw_upload_page(part_id, progress_type):
 def download_redraw_file(stored_filename):
     db = get_db()
     row = db.execute(
-        "SELECT original_filename FROM redraw_files WHERE stored_filename=?", (stored_filename,)
+        "SELECT original_filename, approval_status FROM redraw_files WHERE stored_filename=?", (stored_filename,)
     ).fetchone()
-    if row:
-        extension = row["original_filename"].rsplit(".", 1)[1] if "." in row["original_filename"] else ""
-        display_name = row["display_filename"] if "display_filename" in row.keys() else row["original_filename"]
-        download_name = f"{display_name}.{extension}" if extension else display_name
-    else:
-        download_name = stored_filename
+    if not row:
+        abort(404)
+    if not can_download_approval(row["approval_status"]):
+        flash("File ini belum di-approve Engineering, belum bisa didownload.", "error")
+        return redirect(request.referrer or url_for("progress"))
     return send_from_directory(app.config["UPLOAD_FOLDER"], stored_filename,
-                               as_attachment=True, download_name=download_name)
+                               as_attachment=True, download_name=row["original_filename"])
 
 
 @app.route("/customers", methods=["GET", "POST"])
@@ -2337,6 +2700,9 @@ def download_redraw_file(stored_filename):
 def companies():
     db = get_db()
     if request.method == "POST":
+        if current_divisi() != "Marketing":
+            flash("Hanya Marketing yang dapat menambah customer.", "error")
+            return redirect(url_for("companies"))
         name = request.form.get("name", "").strip()
         if name:
             try:
@@ -2362,7 +2728,7 @@ def companies():
             AND mp.year = p.year
            GROUP BY c.id ORDER BY c.name"""
     ).fetchall()
-    return render_template("companies.html", customers=rows)
+    return render_template("companies.html", customers=rows, can_add_customer=(current_divisi() == "Marketing"))
 
 
 @app.route("/details", methods=["GET", "POST"])
@@ -2397,7 +2763,7 @@ def details():
         customer_name = request.form.get("customer", "").strip()
         model_name = request.form.get("model_name", "").strip()
         partnumber = request.form.get("partnumber", "").strip()
-        category = request.form.get("category", "Chasis").strip()
+        category = request.form.get("category", "Chassis").strip()
         marketing_note = request.form.get("marketing_note", "").strip()
         note_targets = parse_note_targets("Marketing", always_include="Engineer")
         note_target_text = ", ".join(note_targets)
@@ -2405,7 +2771,7 @@ def details():
         kondisi, standard_hours = determine_rfq_condition(selected_items)
         due_date = calculate_due_date_from_hours(datetime.now(), standard_hours)
         if category not in CATEGORIES:
-            category = "Chasis"
+            category = "Chassis"
         if not kondisi:
             flash("Kombinasi checklist belum sesuai standar kondisi A-G pada jadwal RFQ. Silakan cek kembali dokumen yang dikirim.", "error")
             try: os.remove(os.path.join(app.config["UPLOAD_FOLDER"], stored_name))
@@ -2489,105 +2855,6 @@ def details():
             for k, v in RFQ_CONDITION_SCHEDULE.items()
         ],
     )
-
-
-@app.route("/judgement", methods=["GET", "POST"])
-@login_required
-def judgement():
-    """Menu Judgement: Management memberi keputusan untuk RFQ customer baru
-    dan commodity baru. Semua divisi bisa melihat; hanya Management yang input."""
-    db = get_db()
-    is_mgmt = current_divisi() == "Management"
-    if request.method == "POST":
-        if not is_mgmt:
-            flash("Hanya Management yang dapat memberi judgement.", "error")
-            return redirect(url_for("judgement"))
-        jenis = request.form.get("jenis", "")
-        customer = request.form.get("customer", "").strip()
-        commodity = request.form.get("commodity", "").strip()
-        model_name = request.form.get("model_name", "").strip()
-        partnumber = request.form.get("partnumber", "").strip()
-        keputusan = request.form.get("keputusan", "")
-        catatan = request.form.get("catatan", "").strip()
-        recipients = ["Management"]
-        error = None
-        if jenis not in JUDGEMENT_TYPES:
-            error = "Pilih jenis judgement."
-        elif jenis == "RFQ Customer Baru" and not customer:
-            error = "Customer wajib diisi untuk RFQ Customer Baru."
-        elif jenis == "Commodity Baru" and not commodity:
-            error = "Commodity wajib diisi untuk Commodity Baru."
-        elif keputusan not in JUDGEMENT_DECISIONS:
-            error = "Pilih keputusan."
-        elif not catatan:
-            error = "Isi alasan / catatan judgement."
-        if error:
-            flash(error, "error")
-            return redirect(url_for("judgement"))
-        subject_ref = customer or commodity
-        sent = send_email_notification(
-            f"[Monitoring RFQ] Judgement Management - {jenis} - {subject_ref} - {keputusan}",
-            f"""Management telah memberikan judgement.
-
-Jenis      : {jenis}
-Customer   : {customer or '-'}
-Commodity  : {commodity or '-'}
-Model      : {model_name or '-'}
-Partnumber : {partnumber or '-'}
-Keputusan  : {keputusan}
-Oleh       : {session.get('username', '-')} (Management)
-
-Alasan / Catatan:
-{catatan}
-
-Riwayat lengkap ada di menu Judgement pada Monitoring RFQ.
-""",
-            recipients,
-        )
-        recipient_text = ", ".join(recipients)
-        db.execute(
-            "INSERT INTO management_judgements (jenis, customer, commodity, model_name, partnumber, "
-            "keputusan, catatan, author, recipient_divisions, email_sent, created_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            (jenis, customer, commodity, model_name, partnumber, keputusan, catatan,
-             session["username"], recipient_text, 1 if sent else 0,
-             datetime.now().strftime("%d-%m-%Y %H:%M")),
-        )
-        db.commit()
-        if sent:
-            flash(f"Judgement tersimpan dan email terkirim ke {recipient_text}.", "success")
-        else:
-            flash(f"Judgement tersimpan, tetapi email ke {recipient_text} GAGAL terkirim. Cek konfigurasi SMTP dan email anggota grup.", "warning")
-        return redirect(url_for("judgement"))
-
-    jenis_filter = request.args.get("jenis", "")
-    if jenis_filter in JUDGEMENT_TYPES:
-        rows = db.execute("SELECT * FROM management_judgements WHERE jenis=? ORDER BY id DESC LIMIT 300",
-                          (jenis_filter,)).fetchall()
-    else:
-        jenis_filter = ""
-        rows = db.execute("SELECT * FROM management_judgements ORDER BY id DESC LIMIT 300").fetchall()
-    customers = db.execute("SELECT name FROM customers ORDER BY name").fetchall()
-    return render_template(
-        "judgement.html", rows=rows, is_mgmt=is_mgmt, divisions=DIVISIONS,
-        group_labels=GROUP_LABELS, types=JUDGEMENT_TYPES, decisions=JUDGEMENT_DECISIONS,
-        jenis_filter=jenis_filter, customers=customers,
-    )
-
-
-@app.route("/judgement/delete/<int:judgement_id>", methods=["POST"])
-@login_required
-def delete_judgement(judgement_id):
-    if current_divisi() != "Management":
-        flash("Hanya Management yang dapat menghapus judgement.", "error")
-        return redirect(url_for("judgement"))
-    db = get_db()
-    db.execute("DELETE FROM management_judgements WHERE id=?", (judgement_id,))
-    db.commit()
-    flash("Judgement dihapus.", "success")
-    return redirect(url_for("judgement"))
-
-
 @app.route("/details/note", methods=["POST"])
 @login_required
 def send_rfq_note():
@@ -2659,14 +2926,10 @@ def download_submission(stored_filename):
     row = db.execute(
         "SELECT original_filename FROM submissions WHERE stored_filename=?", (stored_filename,)
     ).fetchone()
-    if row:
-        extension = row["original_filename"].rsplit(".", 1)[1] if "." in row["original_filename"] else ""
-        display_name = row["display_filename"] if "display_filename" in row.keys() else row["original_filename"]
-        download_name = f"{display_name}.{extension}" if extension else display_name
-    else:
-        download_name = stored_filename
+    if not row:
+        abort(404)
     return send_from_directory(app.config["UPLOAD_FOLDER"], stored_filename,
-                               as_attachment=True, download_name=download_name)
+                               as_attachment=True, download_name=row["original_filename"])
 
 
 @app.route("/reason/<kind>")

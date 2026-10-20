@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Edit User{% endblock %}
+{% block content %}
+<div class="panel wide-panel" style="max-width:640px;">
+  <div class="panel-header">Edit User - {{ user.username }}</div>
+  <div class="admin-body">
+    <form method="POST" action="{{ url_for('admin_user_edit', user_id=user.id) }}" class="admin-form admin-form-stack" autocomplete="off">
+      <label>Username
+        <input type="text" name="username" value="{{ user.username }}" required maxlength="100">
+      </label>
+      <label>Email
+        <input type="email" name="email" value="{{ user.email or '' }}">
+      </label>
+      <label>Role / Grup
+        <select name="divisi" required>
+          {% for r in roles %}
+          <option value="{{ r }}" {% if user.divisi == r %}selected{% endif %}>{{ group_labels.get(r, r) }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Password baru (kosongkan jika tidak diganti)
+        <input type="password" name="password" minlength="6" autocomplete="new-password">
+      </label>
+      <div class="admin-actions">
+        <button type="submit" class="btn-save">Simpan</button>
+        <a href="{{ url_for('admin_users') }}" class="back-link" style="margin:0;">Batal</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

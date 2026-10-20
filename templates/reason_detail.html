@@ -90,21 +90,24 @@
         <input type="hidden" name="tab" value="review">
         <div class="redraw-box">
           <div class="redraw-title">Drawing Review</div>
+          <table class="redraw-table">
+            <tr><td class="rlabel">Kebutuhan Drawing Review</td><td><input class="qty-input" type="number" min="1" name="review_total" value="{{ part.review_total if part.review_total and part.review_total >= 1 else 1 }}" {% if not can_edit('review') %}disabled{% endif %}></td></tr>
+          </table>
           <div class="redraw-progress-summary">
   <span>Progres Drawing Review:</span>
 
   <strong>
-    {{ part.review_done }}/1
+    {{ part.review_done }}/{{ part.review_total or 1 }}
   </strong>
 
   <span class="status-pill">
-    {{ 'Close' if part.review_done >= 1 else 'Pending' }}
+    {{ part.review_status }}
   </span>
 </div>
-          {% if can_edit('review') %}<button type="submit" class="btn-save">Save</button>{% else %}<p class="perm-note">Tidak memiliki akses untuk mengubah Drawing Review.</p>{% endif %}
+          {% if can_edit('review') %}<button type="submit" class="btn-save">Save Kebutuhan</button>{% else %}<p class="perm-note">Tidak memiliki akses untuk mengubah Drawing Review.</p>{% endif %}
           <div class="redraw-box upload-pages-box" style="margin-top:16px;">
             <div class="redraw-title">Upload File Drawing Review</div>
-            <p class="upload-help">Upload dokumen Drawing Review.</p>
+            <p class="upload-help">Upload dokumen Drawing Review. Bisa lebih dari 1 file sesuai kebutuhan di atas.</p>
             {% if can_edit('review') %}<a class="upload-page-link" href="{{ url_for('redraw_upload_page', part_id=part.id, progress_type='Drawing Review', month=request.args.get('month','')) }}">Upload Drawing Review</a>{% endif %}
           </div>
 
@@ -202,86 +205,7 @@
     </div>
   </div>
 
-  <div class="detail-right">
-    <div class="notes-card">
-    {% if session.get('divisi') == 'Management' %}
-    <div class="judgement-hint">Keputusan untuk RFQ customer baru &amp; commodity baru diberikan lewat menu <a href="{{ url_for('judgement') }}">Judgement</a>.</div>
-    {% endif %}
-    {% for d in divisions %}
-    {% if d != 'Management' or notes_by_divisi.get('Management') %}
-    <div class="divisi-card divisi-{{ d|lower }}">
-      <div class="divisi-title">{{ 'Engineering' if d == 'Engineer' else ('Management (arsip)' if d == 'Management' else d) }}</div>
-      <div class="divisi-notes">
-        {% for n in notes_by_divisi.get(d, []) %}
-        <div class="note-item">
-          <div class="note-text">{{ n.text or '(Tidak ada teks)' }}</div>
-          <div class="note-meta">{{ n.author }} &middot; {{ n.created_at }}</div>
-
-          {% if n.recipient_divisions %}
-          <div class="note-recipient">Dikirim ke: {{ n.recipient_divisions }}</div>
-          {% endif %}
-
-          {% if n.attachment_stored_filename %}
-          <div class="note-attachment">
-            <span>📎 {{ n.attachment_filename }}</span>
-            <a href="{{ url_for('download_note_attachment', stored_filename=n.attachment_stored_filename) }}" class="link-btn">Download</a>
-          </div>
-          {% endif %}
-
-          {% if session.get('divisi') == d %}
-          <form method="POST" style="display:inline">
-            <input type="hidden" name="action" value="remove_note">
-            <input type="hidden" name="note_id" value="{{ n.id }}">
-            <button type="submit" class="btn-remove">Remove</button>
-          </form>
-          {% endif %}
-        </div>
-        {% else %}<div class="note-empty">....</div>{% endfor %}
-      </div>
-
-      {% if session.get('divisi') == d and d != 'Management' %}
-      <form method="POST" class="add-note-form" enctype="multipart/form-data">
-        <input type="hidden" name="action" value="add_note">
-
-        <input
-          type="text"
-          name="text"
-          placeholder="{{ 'Tambah catatan Management...' if d == 'Management' else 'Tambah catatan ' ~ d ~ '...' }}"
-        >
-
-        <div class="note-feedback-row">
-          <label class="note-file-label">
-            📎 File Feedback
-            <input
-              type="file"
-              name="feedback_file"
-              accept=".zip,.rar,.7z,.pdf,.doc,.docx,.xls,.xlsx,.dwg,.jpg,.jpeg,.png"
-            >
-          </label>
-        </div>
-
-        <div class="note-recipient-box">
-          <span class="note-recipient-label">Kirim email ke:</span>
-          <div class="note-recipient-options">
-            {% for target in divisions %}
-              {% if target != session.get('divisi') %}
-              <label>
-                <input type="checkbox" name="recipient_divisions" value="{{ target }}">
-                {{ 'Engineering' if target == 'Engineer' else ('Management' if target == 'Management' else target) }}
-              </label>
-              {% endif %}
-            {% endfor %}
-          </div>
-        </div>
-
-        <button type="submit" class="note-send-btn">Kirim Feedback</button>
-      </form>
-      {% endif %}
-    </div>
-    {% endif %}
-    {% endfor %}
-  </div>
-  </div>
+  {% include "_notes_panel.html" %}
 
   <a href="{{ url_for('progress_model', category=part.category, customer_id=part.customer_id) }}"
      class="back-link">

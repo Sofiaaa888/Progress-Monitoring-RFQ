@@ -6,7 +6,7 @@
   <div class="panel-header">FILE DOKUMEN UNTUK RFQ (REQUEST FOR QUOTATION)</div>
   <div class="upload-body">
     {% if not can_submit %}
-    <p class="perm-note">Hanya divisi Marketing yang dapat mengirim / submit file. Form di bawah ini hanya untuk referensi.</p>
+    <p class="perm-note">Hanya divisi Marketing yang dapat mengirim file</p>
     {% endif %}
     <form method="POST" enctype="multipart/form-data" class="upload-form">
       <div class="submit-layout">
@@ -54,7 +54,6 @@
 
             <small class="marketing-note-hint">
               Saat <strong>Kirim File</strong>, note ikut dikirim di email RFQ ke grup yang dipilih
-              (Engineering selalu menerima email pengiriman file).
               Pakai <strong>Kirim Note Saja</strong> untuk memberi tahu kendala tanpa mengirim file;
               hanya isi note dan tujuan yang wajib, Customer/Model/Partnumber boleh dikosongkan.
             </small>
@@ -83,7 +82,7 @@
           </label>
           <label>Kategori Divisi
             <select name="category" {% if not can_submit %}disabled{% endif %}>
-              {% for cat in ['Chasis', 'Nylon', 'Brazing'] %}
+              {% for cat in ['Chassis', 'Nylon', 'Brazing'] %}
               <option value="{{ cat }}">{{ cat }}</option>
               {% endfor %}
             </select>
@@ -212,7 +211,7 @@
   <div class="panel-header">RIWAYAT NOTE (TANPA FILE)</div>
   <table class="panel-table">
     <thead>
-      <tr><th>No.</th><th>Tanggal</th><th>Dari</th><th>Customer</th><th>Model</th><th>Partnumber</th><th class="note-col">Note</th><th>Dikirim ke</th></tr>
+      <tr><th>No.</th><th>Tanggal</th><th>PIC Marketing</th><th>Customer</th><th>Model</th><th>Partnumber</th><th class="note-col">Note</th><th>Divisi</th></tr>
     </thead>
     <tbody>
       {% for n in rfq_notes %}

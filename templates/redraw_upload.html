@@ -5,7 +5,7 @@
 <div class="panel wide-panel">
   <div class="panel-header">Upload {{ progress_type }}</div>
   <div class="upload-single-body">
-    {% if progress_type == 'Drawing Review' %}<p class="upload-help">Drawing Review: maksimal 1 file untuk setiap Partnumber.</p>{% elif progress_type == 'Partlist' %}<p class="upload-help">Partlist: maksimal 1 file untuk setiap Model.</p>{% endif %}
+    {% if progress_type == 'Drawing Review' %}<p class="upload-help">Drawing Review: jumlah file sesuai kebutuhan yang diatur Engineering di halaman detail</p>{% elif progress_type == 'Partlist' %}<p class="upload-help">Partlist: maksimal 1 file untuk setiap Model.</p>{% endif %}
     <div class="upload-info-grid">
       <div><span>Customer</span><strong>{{ customer.name }}</strong></div>
       <div><span>Model</span><strong>{{ part.model_name }}</strong></div>

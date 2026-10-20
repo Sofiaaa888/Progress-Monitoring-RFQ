@@ -290,7 +290,7 @@ body {
   text-align: center;
   font-weight: 700;
 }
-.cat-chasis { background: #f3f176; }
+.cat-chassis { background: #f3f176; }
 .cat-nylon { background: #f5a94e; }
 .cat-brazing { background: #b6ea6b; }
 .category-table td { background: #f7f7f7; }
@@ -2136,24 +2136,36 @@ body {
 }
 .btn-note-only:hover { background: #0d3fa8; color: #fff; }
 
+/* ---------- Admin: kelola user & tabel dokumen progress ---------- */
+.admin-body { background: #e7ecf4; padding: 20px; border-radius: 0 0 18px 18px; }
+.admin-hint { margin: 0 0 14px; color: #123a8f; font-size: 14px; }
+.admin-form { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+.admin-form label { flex: 1 1 180px; display: flex; flex-direction: column; gap: 6px; color: #123a8f; font-weight: 700; font-size: 14px; }
+.admin-form input, .admin-form select { padding: 10px 12px; border: 1px solid #7ea5d6; border-radius: 8px; font-size: 15px; background: #fff; }
+.admin-form-stack { flex-direction: column; align-items: stretch; }
+.admin-actions { display: flex; gap: 16px; align-items: center; }
+.admin-counts { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px 0; }
+.admin-chip { background: #e8eef9; color: #123a8f; border-radius: 16px; padding: 4px 14px; font-size: 13px; }
+.doc-policy-note { margin: 10px 16px 0; font-size: 13px; color: #123a8f; }
+.doc-status-wait { color: #b36b00; font-weight: 700; }
+.doc-locked { color: #777; font-size: 13px; font-style: italic; }
+.doc-progress-table td small { color: #666; }
 
-/* ---------- Menu Judgement Management ---------- */
-.judgement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; margin-bottom: 12px; }
-.judgement-form label { display: flex; flex-direction: column; gap: 5px; font-size: 14px; font-weight: 600; color: #123a8f; }
-.judgement-form input[type=text], .judgement-form select, .judgement-form textarea {
-  padding: 9px 12px; border: 1px solid #7ea5d6; border-radius: 8px; background: #f8fbff;
-  font-family: inherit; font-size: 14px; font-weight: 400; color: #333; box-sizing: border-box; width: 100%;
-}
-.judgement-form .note-target-opt { flex-direction: row; font-weight: 400; color: #333; }
-.req-hint { font-weight: 400; font-size: 12px; color: #64748b; }
-.judgement-filter { display: flex; gap: 8px; padding: 12px 16px 0; }
-.judgement-filter a { padding: 5px 14px; border-radius: 16px; background: #e8eef9; color: #123a8f; font-size: 13px; text-decoration: none; font-weight: 600; }
-.judgement-filter a.active { background: #123a8f; color: #fff; }
-.jd-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-.jd-go { background: #d4f4dd; color: #14692d; }
-.jd-go-dengan-syarat { background: #fff1c2; color: #8a6100; }
-.jd-perlu-diskusi { background: #dbe7ff; color: #123a8f; }
-.jd-no-go { background: #fcd9d9; color: #9b1c1c; }
-.judgement-hint { background: #f1eaff; border-radius: 12px; padding: 10px 14px; font-size: 13px; color: #4b3a7a; margin-bottom: 12px; }
-.judgement-hint a { color: #123a8f; font-weight: 700; }
-@media (max-width: 700px) { .judgement-grid { grid-template-columns: 1fr; } }
+/* ---------- Tabel dokumen + panel feedback di kanan ---------- */
+.doc-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.doc-main { min-width: 0; }
+.doc-table-scroll { overflow-x: auto; }
+.doc-row { cursor: pointer; }
+.doc-row:hover { background: #dbe6f7; }
+.doc-row-selected { background: #c9dbf6 !important; outline: 2px solid #123a8f; outline-offset: -2px; }
+.doc-side { position: sticky; top: 12px; min-width: 0; }
+.doc-side-head { background: #123a8f; color: #fff; font-weight: 700; font-size: 14px; padding: 10px 14px; border-radius: 12px; margin-bottom: 10px; }
+@media (max-width: 1100px) { .doc-layout { grid-template-columns: 1fr; } .doc-side { position: static; } }
+
+
+/* Partlist per model (Marketing/Purchasing): nama file = link download langsung */
+.partlist-file-link { display:inline-block; max-width:220px; word-break:break-all; font-weight:700; color:#0b4a8f; text-decoration:underline; }
+.partlist-file-link:hover { color:#08305d; }
+.partlist-file-name { display:inline-block; max-width:220px; word-break:break-all; font-weight:700; }
+.partlist-meta { margin-top:4px; }
+.partlist-empty { font-weight:400; color:#666; font-size:13px; }

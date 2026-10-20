@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Dokumen Progress - {{ customer.name }}{% endblock %}
+{% block content %}
+
+<div class="tabs progress-category-tabs">
+  {% for cat in categories %}
+    <a href="{{ url_for('progress', category=cat, month=selected_month) }}" class="tab {% if cat == category %}active{% endif %}">{{ cat }}</a>
+  {% endfor %}
+</div>
+
+{% if selected_month %}
+  <div class="selected-progress-month">Bulan Progress: <strong>{{ selected_month }}</strong></div>
+{% endif %}
+
+<div class="doc-layout">
+<div class="doc-main">
+<div class="panel wide-panel">
+  <div class="panel-header">Dokumen Progress {{ customer.name }}</div>
+  <div class="table-tools">
+    <input id="progressSearch" class="table-search" type="search" placeholder="Cari model, P/N, jenis dokumen, atau nama file...">
+  </div>
+
+  {% if session.get('divisi') in ('Purchasing', 'Management') %}
+  <p class="doc-policy-note">File hanya bisa didownload setelah di-approve</p>
+  {% elif session.get('divisi') == 'Marketing' %}
+  <p class="doc-policy-note">Anda bisa mendownload semua file, termasuk yang belum di-approve</p>
+  {% endif %}
+
+  <p class="doc-policy-note">Klik sebuah baris untuk menampilkan feedback P/N tersebut di panel kanan.</p>
+  <div class="doc-table-scroll">
+  <table class="panel-table doc-progress-table" id="progressTable">
+    <thead>
+      <tr>
+        <th>No.</th>
+        <th>Model</th>
+        <th>P/N</th>
+        <th>Due Date</th>
+        <th>Dokumen</th>
+        <th>Jenis</th>
+        <th>Nama File</th>
+        <th>Status</th>
+        <th>PIC</th>
+        <th>Download</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in docs %}
+      <tr class="doc-row {% if d.feedback_part_id == selected_part_id %}doc-row-selected{% endif %}" data-part="{{ d.feedback_part_id }}">
+        <td>{{ loop.index }}</td>
+        <td>{{ d.model }}</td>
+        <td>{{ d.part_no }}</td>
+        <td>{{ d.due_date }}</td>
+        <td>{{ d.group }}</td>
+        <td>{{ d.jenis }}</td>
+        {% if d.placeholder %}
+        <td colspan="3" class="empty-row">{{ d.filename }}</td>
+        <td>-</td>
+        {% else %}
+        <td>{{ d.filename }}</td>
+        <td class="{{ 'status-close' if d.approved else 'doc-status-wait' }}">{{ 'Sudah Approval' if d.approved else 'Belum Approval' }}</td>
+        <td>{{ d.uploaded_by }}<br><small>{{ d.created_at }}</small></td>
+        <td>
+          {% if d.can_download %}
+            <a class="link-btn" href="{{ d.url }}">Download</a>
+          {% else %}
+            <span class="doc-locked" title="Menunggu approval">Menunggu approval</span>
+          {% endif %}
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+      {% for e in empty_parts %}
+      <tr class="doc-row {% if e.part_id == selected_part_id %}doc-row-selected{% endif %}" data-part="{{ e.part_id }}">
+        <td>{{ docs|length + loop.index }}</td>
+        <td>{{ e.model }}</td><td>{{ e.part_no }}</td><td>{{ e.due_date }}</td>
+        <td colspan="5" class="empty-row">Belum ada dokumen</td>
+        <td>-</td>
+      </tr>
+      {% endfor %}
+      {% if not docs and not empty_parts %}
+      <tr><td colspan="10" class="empty-row">Belum ada data.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<a href="{{ url_for('progress', category=category, month=selected_month) }}" class="back-link">&larr; Kembali ke {{ category }}</a>
+</div>
+
+<aside class="doc-side">
+  {% if part %}
+  <div class="doc-side-head">Feedback &middot; {{ part.model_name }} &middot; P/N {{ part.part_no }}</div>
+  {% include "_notes_panel.html" %}
+  {% else %}
+  <div class="doc-side-head">Belum ada P/N untuk diberi feedback.</div>
+  {% endif %}
+</aside>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('tr.doc-row').forEach(function (row) {
+    row.addEventListener('click', function (ev) {
+      if (ev.target.closest('a')) return;
+      const u = new URL(window.location.href);
+      u.searchParams.set('part', row.dataset.part);
+      window.location.href = u.toString();
+    });
+  });
+  const input = document.getElementById('progressSearch');
+  const table = document.getElementById('progressTable');
+  if (!input || !table) return;
+  input.addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    table.querySelectorAll('tbody tr').forEach(function (row) {
+      if (row.querySelector('.empty-row')) return;
+      row.style.display = row.innerText.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+});
+</script>
+{% endblock %}
