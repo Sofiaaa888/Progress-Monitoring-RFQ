@@ -23,6 +23,7 @@
           {% if session.get('divisi') == d %}
           <form method="POST" action="{{ url_for('redraw_detail', part_id=part.id) }}" style="display:inline">
             <input type="hidden" name="action" value="remove_note">
+            <input type="hidden" name="tab" value="{{ tab|default('redraw') }}">
             <input type="hidden" name="note_id" value="{{ n.id }}">
             <button type="submit" class="btn-remove">Remove</button>
           </form>
@@ -34,6 +35,7 @@
       {% if session.get('divisi') == d %}
       <form method="POST" action="{{ url_for('redraw_detail', part_id=part.id) }}" class="add-note-form" enctype="multipart/form-data">
         <input type="hidden" name="action" value="add_note">
+        <input type="hidden" name="tab" value="{{ tab|default('redraw') }}">
 
         <input
           type="text"

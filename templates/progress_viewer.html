@@ -57,21 +57,11 @@
           </a>
         </td>
 
-        {% if p.show_partlist %}
-        <td rowspan="{{ p.model_span }}" class="model-partlist-cell">
-          {% if p.partlist_file_stored %}
-            {% if can_download_approval(p.partlist_file_status) %}
-            <a class="partlist-file-link" href="{{ url_for('download_model_partlist_file', stored_filename=p.partlist_file_stored) }}" title="Klik untuk download">{{ p.partlist_file_name }}</a>
-            {% else %}
-            <span class="partlist-file-name">{{ p.partlist_file_name }}</span>
-            <div><span class="doc-locked" title="Menunggu approval">Menunggu approval</span></div>
-            {% endif %}
-            <div class="partlist-meta"><span class="badge {{ 'badge-approved' if p.partlist_file_status == 'Sudah Approval' else 'badge-pending' }}">{{ p.partlist_file_status }}</span></div>
-          {% else %}
-            <span class="partlist-empty">Belum ada file</span>
-          {% endif %}
+        <td>
+          <a class="cell-link" href="{{ url_for('redraw_detail', part_id=p.id, tab='partlist', month=selected_month) }}">
+            {{ fmt_status(p.model_partlist_status, p.model_partlist_done, p.model_partlist_total) }}
+          </a>
         </td>
-        {% endif %}
       </tr>
       {% else %}
       <tr><td colspan="8" class="empty-row">Belum ada data.</td></tr>

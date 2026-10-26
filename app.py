@@ -1891,33 +1891,20 @@ def render_progress_documents(db, category, customer, selected_month, selected_y
 
 def render_progress_viewer(db, category, customer, selected_month, selected_year, where, params):
     """Tampilan Marketing / Purchasing / Management: tabel P/N dengan kolom Redraw, Drawing Review, Partlist.
-    Redraw & Drawing Review membuka tabel file (status + download); Partlist (1 file per model)
-    langsung berupa link download pada nama file."""
+    Ketiganya membuka halaman tabel file (status + download) beserta kolom feedback per part."""
     raw_parts = db.execute(
         f"""SELECT p.*, mp.id AS model_partlist_id,
-                  mpf.original_filename AS partlist_file_name,
-                  mpf.stored_filename AS partlist_file_stored,
-                  mpf.approval_status AS partlist_file_status
+                  COALESCE(mp.partlist_status, 'Open') AS model_partlist_status,
+                  COALESCE(mp.partlist_done, 0) AS model_partlist_done,
+                  COALESCE(mp.partlist_total, 1) AS model_partlist_total
            FROM parts p
            LEFT JOIN model_partlists mp
              ON mp.customer_id=p.customer_id AND mp.model_name=p.model_name AND mp.category=p.category AND mp.year=p.year
-           LEFT JOIN model_partlist_files mpf
-             ON mpf.id = (SELECT MAX(x.id) FROM model_partlist_files x WHERE x.model_partlist_id=mp.id)
            {where}
            ORDER BY p.model_name, p.part_no""",
         params,
     ).fetchall()
-    parts = []
-    model_counts = {}
-    for r in raw_parts:
-        model_counts[r["model_name"]] = model_counts.get(r["model_name"], 0) + 1
-    seen = set()
-    for r in raw_parts:
-        item = dict(r)
-        item["show_partlist"] = r["model_name"] not in seen
-        item["model_span"] = model_counts[r["model_name"]]
-        seen.add(r["model_name"])
-        parts.append(item)
+    parts = [dict(r) for r in raw_parts]
     return render_template("progress_viewer.html", category=category, categories=CATEGORIES,
                            customer=customer, parts=parts,
                            selected_month=selected_month, selected_year=selected_year)
@@ -2463,14 +2450,20 @@ Lampiran:
         initial_tab = "redraw"
     if current_divisi() in ("Marketing", "Purchasing", "Management"):
         month_arg = request.args.get("month", "")
-        if initial_tab not in ("redraw", "review"):
-            return redirect(url_for("progress_model", category=part["category"],
-                                    customer_id=part["customer_id"], month=month_arg))
         redraw_types = ("Finish Good", "Komponen", "Drawing Tooling", "Drawing Pipa")
         wanted = redraw_types if initial_tab == "redraw" else ("Drawing Review",)
         view_files = [f for t in wanted for f in reversed(progress_files) if f["progress_type"] == t]
         need_summary = []
-        if initial_tab == "redraw":
+        if initial_tab == "partlist":
+            view_files = db.execute(
+                """SELECT f.* FROM model_partlist_files f
+                   JOIN model_partlists mp ON mp.id=f.model_partlist_id
+                   WHERE mp.customer_id=? AND mp.model_name=? AND mp.category=? AND mp.year=?
+                   ORDER BY f.id""",
+                (part["customer_id"], part["model_name"], part["category"], part["year"]),
+            ).fetchall()
+            need_summary.append(("Partlist", len(view_files), 1))
+        elif initial_tab == "redraw":
             for jenis, col in (("Finish Good", "finish_good"), ("Komponen", "komponen"),
                                ("Drawing Tooling", "drawing_tooling"), ("Drawing Pipa", "drawing_pipa")):
                 raw_qty = str(part[col] or "")
