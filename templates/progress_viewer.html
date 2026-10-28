@@ -43,7 +43,7 @@
         <td>{{ customer.name }}</td>
         <td>{{ p.model_name }}</td>
         <td>{{ p.part_no }}</td>
-        <td>{{ p.due_date or '-' }}</td>
+        <td>{% include '_due_date_cell.html' %}</td>
 
         <td>
           <a class="cell-link" href="{{ url_for('redraw_detail', part_id=p.id, tab='redraw', month=selected_month) }}">
@@ -58,9 +58,13 @@
         </td>
 
         <td>
+          {% if p.go_decision == 'No Go' %}
+            Close
+          {% else %}
           <a class="cell-link" href="{{ url_for('redraw_detail', part_id=p.id, tab='partlist', month=selected_month) }}">
             {{ fmt_status(p.model_partlist_status, p.model_partlist_done, p.model_partlist_total) }}
           </a>
+          {% endif %}
         </td>
       </tr>
       {% else %}

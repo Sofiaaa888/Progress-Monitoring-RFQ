@@ -2169,3 +2169,14 @@ body {
 .partlist-file-name { display:inline-block; max-width:220px; word-break:break-all; font-weight:700; }
 .partlist-meta { margin-top:4px; }
 .partlist-empty { font-weight:400; color:#666; font-size:13px; }
+
+/* Due date kondisi F/G: To be discussed / Go / No Go */
+.decision-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+.decision-badge.tbd { background: #fff3cd; color: #7a5b00; }
+.decision-badge.go { background: #d4edda; color: #1e6b34; margin-left: 4px; }
+.decision-badge.nogo { background: #f8d7da; color: #8a1f2b; }
+.due-decision-form { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; align-items: center; }
+.due-decision-form input[type=date] { padding: 3px 6px; font-size: 12px; border: 1px solid #8aa4d6; border-radius: 6px; }
+.btn-decision { padding: 3px 10px; font-size: 12px; border: 0; border-radius: 6px; cursor: pointer; color: #fff; }
+.btn-decision.go { background: #1e7a3c; }
+.btn-decision.nogo { background: #b02a37; }

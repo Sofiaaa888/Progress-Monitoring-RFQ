@@ -42,7 +42,7 @@
           <td>{{ customer.name }}</td>
           <td>{{ p.model_name }}</td>
           <td>{{ p.part_no }}</td>
-          <td>{{ p.due_date or '-' }}</td>
+          <td>{% include '_due_date_cell.html' %}</td>
 
           <td>
             <a class="cell-link" href="{{ url_for('redraw_detail', part_id=p.id, tab='redraw', month=selected_month) }}">

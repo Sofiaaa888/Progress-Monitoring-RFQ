@@ -23,6 +23,7 @@
             <tr><td class="rlabel">Drawing Tooling (Hasami &amp; Go No Go)</td><td><input class="qty-input" type="number" min="0" name="drawing_tooling" value="{{ part.drawing_tooling if (part.drawing_tooling|string).isdigit() else 0 }}" {% if not can_edit('redraw') %}disabled{% endif %}></td></tr>
             <tr><td class="rlabel">Drawing Pipa</td><td><input class="qty-input" type="number" min="0" name="drawing_pipa" value="{{ part.drawing_pipa if (part.drawing_pipa|string).isdigit() else 0 }}" {% if not can_edit('redraw') %}disabled{% endif %}></td></tr>
           </table>
+          <p class="upload-help">Jika semua kebutuhan diisi 0 lalu disimpan, Redraw tidak diperlukan dan status otomatis Close.</p>
           <div class="redraw-progress-summary">
             <span>Progres Redraw:</span>
             <strong>{{ part.redraw_done }}/<span id="redraw-total-live">{{ part.redraw_total }}</span></strong>
@@ -91,13 +92,14 @@
         <div class="redraw-box">
           <div class="redraw-title">Drawing Review</div>
           <table class="redraw-table">
-            <tr><td class="rlabel">Kebutuhan Drawing Review</td><td><input class="qty-input" type="number" min="1" name="review_total" value="{{ part.review_total if part.review_total and part.review_total >= 1 else 1 }}" {% if not can_edit('review') %}disabled{% endif %}></td></tr>
+            <tr><td class="rlabel">Kebutuhan Drawing Review</td><td><input class="qty-input" type="number" min="0" name="review_total" value="{{ part.review_total if part.review_total is not none else 1 }}" {% if not can_edit('review') %}disabled{% endif %}></td></tr>
           </table>
+          <p class="upload-help">Isi 0 jika Drawing Review tidak diperlukan; status otomatis Close.</p>
           <div class="redraw-progress-summary">
   <span>Progres Drawing Review:</span>
 
   <strong>
-    {{ part.review_done }}/{{ part.review_total or 1 }}
+    {{ part.review_done }}/{{ part.review_total if part.review_total is not none else 1 }}
   </strong>
 
   <span class="status-pill">
@@ -151,19 +153,18 @@
         <input type="hidden" name="tab" value="partlist">
         <div class="redraw-box">
           <div class="redraw-title">Partlist</div>
+          {% set pl_need = model_pl.partlist_total if model_pl and model_pl.partlist_total is not none else 1 %}
+          <table class="redraw-table">
+            <tr><td class="rlabel">Kebutuhan Partlist (per model {{ part.model_name }})</td><td><input class="qty-input" type="number" min="0" max="1" name="partlist_total" value="{{ pl_need }}" {% if not can_edit('partlist') %}disabled{% endif %}></td></tr>
+          </table>
+          <p class="upload-help">Isi 1 jika Partlist diperlukan, atau 0 jika tidak diperlukan (status otomatis Close).</p>
           <div class="redraw-progress-summary">
-  <span>Progres Partlist:</span>
+            <span>Progres Partlist:</span>
+            <strong>{{ model_pl.partlist_done if model_pl else 0 }}/{{ pl_need }}</strong>
+            <span class="status-pill">{{ model_pl.partlist_status if model_pl else 'Open' }}</span>
+          </div>
 
-  <strong>
-    {{ part.partlist_done }}/1
-  </strong>
-
-  <span class="status-pill">
-    {{ 'Close' if part.partlist_done >= 1 else 'Pending' }}
-  </span>
-</div>
-
-          {% if can_edit('partlist') %}<button type="submit" class="btn-save">Save</button>{% else %}<p class="perm-note">Tidak memiliki akses untuk mengubah Partlist.</p>{% endif %}
+          {% if can_edit('partlist') %}<button type="submit" class="btn-save">Save Kebutuhan</button>{% else %}<p class="perm-note">Tidak memiliki akses untuk mengubah Partlist.</p>{% endif %}
           <div class="redraw-box upload-pages-box" style="margin-top:16px;">
             <div class="redraw-title">Upload File Partlist</div>
             <p class="upload-help">Upload dokumen Partlist.</p>

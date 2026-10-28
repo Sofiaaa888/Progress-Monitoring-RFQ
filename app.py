@@ -580,9 +580,11 @@ def init_db():
     db.commit()
     hash_legacy_passwords(db)
     ensure_admin(db)
+    # F/G yang belum diputuskan Go harus kosong (To be discussed), jangan terisi tanggal demo.
+    db.execute("UPDATE parts SET due_date='' WHERE kondisi IN ('F','G') AND COALESCE(go_decision,'')=''")
     backfill_demo_due_dates(db)
 
-    db.execute("UPDATE parts SET review_total=1 WHERE review_total IS NULL OR review_total < 1")
+    db.execute("UPDATE parts SET review_total=1 WHERE review_total IS NULL OR review_total < 0")
     db.execute("UPDATE parts SET review_done=review_total WHERE review_done > review_total")
     db.execute("UPDATE parts SET review_status='Close' WHERE review_done >= review_total AND review_done > 0")
     db.execute("""
@@ -591,12 +593,16 @@ def init_db():
             partlist_done=CASE WHEN partlist_done > 0 THEN 1 ELSE 0 END,
             partlist_status=CASE WHEN partlist_done > 0 THEN 'Close' ELSE 'Open' END
     """)
+    # Kebutuhan Partlist per model hanya 0 atau 1 (0 = tidak diperlukan -> Close).
+    db.execute("UPDATE model_partlists SET partlist_total=1 WHERE partlist_total IS NULL OR partlist_total > 1 OR partlist_total < 0")
     db.execute("""
         UPDATE model_partlists
-        SET partlist_total=1,
-            partlist_done=CASE WHEN partlist_done > 0 THEN 1 ELSE 0 END,
+        SET partlist_done=CASE WHEN partlist_done > 0 THEN 1 ELSE 0 END,
             partlist_status=CASE WHEN partlist_done > 0 THEN 'Close' ELSE 'Open' END
+        WHERE partlist_total=1
     """)
+    db.execute("UPDATE model_partlists SET partlist_done=0, partlist_status='Close' WHERE partlist_total=0")
+    close_nogo_model_partlists(db)
     db.commit()
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -636,9 +642,12 @@ def migrate(db):
     extra_columns = [
         ("users", "email", "VARCHAR(255) DEFAULT ''"),
         ("parts", "redraw_note", "TEXT DEFAULT ''"),
+        ("parts", "redraw_saved", "INTEGER NOT NULL DEFAULT 0"),
         ("parts", "drawing_pipa", "TEXT DEFAULT ''"),
         ("parts", "partlist_note", "TEXT DEFAULT ''"),
         ("parts", "due_date", "TEXT DEFAULT ''"),
+        ("parts", "kondisi", "VARCHAR(20) DEFAULT ''"),
+        ("parts", "go_decision", "VARCHAR(10) DEFAULT ''"),
         ("parts", "year", "INT"),
         ("redraw_files", "progress_type", "TEXT NOT NULL DEFAULT 'Finish Good'"),
         ("redraw_files", "display_filename", "TEXT NOT NULL DEFAULT 'Finish Good'"),
@@ -665,6 +674,14 @@ def migrate(db):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coltype}")
         except Error:
             pass
+    try:
+        # Isi kondisi part lama dari submission RFQ terakhirnya.
+        db.execute(
+            """UPDATE parts SET kondisi=COALESCE((SELECT s.kondisi FROM submissions s
+                                                  WHERE s.part_id=parts.id ORDER BY s.id DESC LIMIT 1), '')
+               WHERE COALESCE(kondisi, '')='' """)
+    except Error:
+        pass
     db.executescript(
         """
         CREATE TABLE IF NOT EXISTS model_partlists (
@@ -727,16 +744,20 @@ def sync_model_partlist(db, model_partlist_id):
     row = db.execute("SELECT * FROM model_partlists WHERE id=?", (model_partlist_id,)).fetchone()
     if not row:
         return
-    total = 1
+    total = 0 if (row['partlist_total'] is not None and int(row['partlist_total']) == 0) else 1
     approved = db.execute(
         "SELECT COUNT(*) c FROM model_partlist_files WHERE model_partlist_id=? AND approval_status='Sudah Approval'",
         (model_partlist_id,),
     ).fetchone()['c']
-    done = min(approved, total)
-    status = 'Close' if done >= total else ('Pending' if approved > 0 else 'Open')
+    if total == 0:
+        # Partlist tidak diperlukan -> langsung Close.
+        done, status = 0, 'Close'
+    else:
+        done = min(approved, total)
+        status = 'Close' if done >= total else ('Pending' if approved > 0 else 'Open')
     db.execute(
-        "UPDATE model_partlists SET partlist_done=?, partlist_status=?, partlist_total=1 WHERE id=?",
-        (done, status, model_partlist_id),
+        "UPDATE model_partlists SET partlist_done=?, partlist_status=?, partlist_total=? WHERE id=?",
+        (done, status, total, model_partlist_id),
     )
 def sync_redraw_progress(db, part_id):
     part = db.execute("SELECT * FROM parts WHERE id=?", (part_id,)).fetchone()
@@ -764,17 +785,20 @@ def sync_redraw_progress(db, part_id):
         done = total
     elif total > 0:
         status = "Pending"
+    elif int(part["redraw_saved"] or 0):
+        # Engineering sudah menyimpan kebutuhan 0/0 -> tidak diperlukan, otomatis Close.
+        status = "Close"
     else:
         status = "Open"
     db.execute("UPDATE parts SET redraw_status=?, redraw_done=?, redraw_total=? WHERE id=?",
                (status, done, total, part_id))
 def sync_review_progress(db, part_id):
-    """Hitung ulang progress Drawing Review: kebutuhan = review_total (minimal 1),
+    """Hitung ulang progress Drawing Review: kebutuhan = review_total (boleh 0 = tidak diperlukan -> Close),
     selesai = jumlah file Drawing Review yang sudah di-approve (maksimal sebesar kebutuhan)."""
     part = db.execute("SELECT review_total FROM parts WHERE id=?", (part_id,)).fetchone()
     if not part:
         return
-    total = max(int(part["review_total"] or 1), 1)
+    total = 1 if part["review_total"] is None else max(int(part["review_total"]), 0)
     approved = db.execute(
         "SELECT COUNT(*) c FROM redraw_files WHERE part_id=? AND progress_type='Drawing Review' AND approval_status='Sudah Approval'",
         (part_id,),
@@ -784,7 +808,7 @@ def sync_review_progress(db, part_id):
         (part_id,),
     ).fetchone()["c"]
     done = min(int(approved), total)
-    if done >= total:
+    if total == 0 or done >= total:
         status = "Close"
     elif uploaded > 0:
         status = "Pending"
@@ -802,9 +826,26 @@ def fmt_status(status, done, total):
     if status == "Close":
         return "Close"
     return f"{int(done or 0)}/{int(total or 0)}"
+def close_nogo_model_partlists(db):
+    """Partlist dihitung per model. Jika semua part dalam satu model sudah No Go,
+    partlist model itu otomatis Close (tidak ada yang perlu dikerjakan)."""
+    db.execute(
+        """UPDATE model_partlists mp
+           SET partlist_status='Close', partlist_done=1, partlist_total=1
+           WHERE EXISTS (SELECT 1 FROM parts p
+                         WHERE p.customer_id=mp.customer_id AND p.model_name=mp.model_name
+                           AND p.category=mp.category AND p.year=mp.year AND p.go_decision='No Go')
+             AND NOT EXISTS (SELECT 1 FROM parts p
+                         WHERE p.customer_id=mp.customer_id AND p.model_name=mp.model_name
+                           AND p.category=mp.category AND p.year=mp.year
+                           AND COALESCE(p.go_decision,'')<>'No Go')""")
 def backfill_demo_due_dates(db):
     month_num = {name: i for i, name in enumerate(MONTHS, start=1)}
-    rows = db.execute("SELECT id, month, year FROM parts WHERE COALESCE(due_date, '')='' ").fetchall()
+    # Hanya data demo (tanpa RFQ submission) dan bukan kondisi F/G.
+    rows = db.execute(
+        """SELECT id, month, year FROM parts
+           WHERE COALESCE(due_date, '')='' AND COALESCE(kondisi, '') NOT IN ('F','G')
+             AND NOT EXISTS (SELECT 1 FROM submissions s WHERE s.part_id=parts.id)""").fetchall()
     for r in rows:
         m = month_num.get(r["month"], 1)
         day = (int(r["id"]) % 25) + 1
@@ -1055,27 +1096,6 @@ def parse_note_targets(actor_division, always_include=None):
     if always_include:
         chosen.add(always_include)
     return [d for d in DIVISIONS if d in chosen and d != actor_division]
-
-
-def notify_standalone_note(text, recipients, customer="", model_name="", partnumber="", category=""):
-    actor = current_divisi()
-    ref = " - ".join(x for x in (model_name, f"P/N {partnumber}" if partnumber else "") if x)
-    subject = f"[Monitoring RFQ] Note dari {GROUP_LABELS.get(actor, actor)}" + (f" - {ref}" if ref else "")
-    return send_email_notification(
-        subject,
-        f"""Ada Note baru (tanpa pengiriman file) pada Monitoring RFQ.
-
-Dari       : {session.get('username', '-')} ({actor})
-Customer   : {customer or '-'}
-Model      : {model_name or '-'}
-Partnumber : {partnumber or '-'}
-Kategori   : {category or '-'}
-
-Note:
-{text}
-""",
-        recipients,
-    )
 
 
 def notify_note(part, note_text):
@@ -1776,7 +1796,7 @@ def render_progress_documents(db, category, customer, selected_month, selected_y
     """Tampilan Marketing / Purchasing / Management: hanya tabel dokumen progress
     (Redraw, Drawing Review, Partlist) tanpa form upload."""
     part_rows = db.execute(
-        f"SELECT p.id, p.model_name, p.part_no, p.due_date, p.year, p.finish_good, p.komponen, p.drawing_tooling, p.drawing_pipa, p.review_total FROM parts p {where}", params
+        f"SELECT p.id, p.model_name, p.part_no, p.due_date, p.year, p.finish_good, p.komponen, p.drawing_tooling, p.drawing_pipa, p.review_total, p.customer_id, p.category FROM parts p {where}", params
     ).fetchall()
     part_map = {r["id"]: r for r in part_rows}
     model_keys = {(r["model_name"], r["year"]) for r in part_rows}
@@ -1847,9 +1867,9 @@ def render_progress_documents(db, category, customer, selected_month, selected_y
                 })
     partlist_models = {d["model"] for d in docs if d["jenis"] == "Partlist"}
     for r in part_rows:
-        need_rv = max(int(r["review_total"] or 1), 1)
+        need_rv = 1 if r["review_total"] is None else max(int(r["review_total"]), 0)
         have_rv = uploaded.get((r["id"], "Drawing Review"), 0)
-        if have_rv < need_rv:
+        if need_rv > 0 and have_rv < need_rv:
             docs.append({
                 "model": r["model_name"], "part_no": r["part_no"], "due_date": r["due_date"] or "-",
                 "group": "Drawing Review", "jenis": "Drawing Review",
@@ -1857,7 +1877,12 @@ def render_progress_documents(db, category, customer, selected_month, selected_y
                 "uploaded_by": "", "created_at": "", "can_download": False, "url": "",
                 "feedback_part_id": r["id"], "note_count": 0, "placeholder": True,
             })
+    zero_partlist = {(z["customer_id"], z["model_name"], z["category"], z["year"]) for z in db.execute(
+        "SELECT customer_id, model_name, category, year FROM model_partlists WHERE partlist_total=0").fetchall()}
     for (model_name, _year), first_id in first_part_of_model.items():
+        fp = part_map.get(first_id)
+        if fp is not None and (fp["customer_id"], model_name, fp["category"], _year) in zero_partlist:
+            continue  # Partlist model ini tidak diperlukan (0/0) -> tidak ada dokumen yang ditunggu
         if model_name not in partlist_models:
             docs.append({
                 "model": model_name, "part_no": "Semua P/N", "due_date": "-",
@@ -1990,11 +2015,13 @@ def model_partlist_detail(model_partlist_id):
         if not can_edit("partlist"):
             flash("Anda tidak memiliki akses untuk mengubah Partlist.", "error")
         elif action == "save_partlist":
-            db.execute("UPDATE model_partlists SET partlist_total=1, partlist_note=? WHERE id=?",
-                       (request.form.get("partlist_note", ""), model_partlist_id))
+            raw_need = request.form.get("partlist_total", type=int)
+            need = 1 if raw_need is None else (1 if raw_need >= 1 else 0)
+            db.execute("UPDATE model_partlists SET partlist_total=?, partlist_note=? WHERE id=?",
+                       (need, request.form.get("partlist_note", ""), model_partlist_id))
             sync_model_partlist(db, model_partlist_id)
             db.commit()
-            flash("Partlist model berhasil disimpan.", "success")
+            flash("Kebutuhan Partlist berhasil disimpan." + (" Partlist tidak diperlukan, status otomatis Close." if need == 0 else ""), "success")
             return redirect(url_for("model_partlist_detail", model_partlist_id=model_partlist_id, month=request.args.get("month", "")))
         elif action == "upload":
             file = request.files.get("file")
@@ -2154,7 +2181,7 @@ def redraw_detail(part_id):
 
         if action == "save_redraw" and can_edit("redraw"):
             db.execute(
-                "UPDATE parts SET finish_good=?, komponen=?, drawing_tooling=?, drawing_pipa=?, redraw_note=? WHERE id=?",
+                "UPDATE parts SET finish_good=?, komponen=?, drawing_tooling=?, drawing_pipa=?, redraw_note=?, redraw_saved=1 WHERE id=?",
                 (request.form.get("finish_good", "0"), request.form.get("komponen", "0"),
                  request.form.get("drawing_tooling", "0"), request.form.get("drawing_pipa", "0"),
                  request.form.get("redraw_note", ""), part_id),
@@ -2176,7 +2203,8 @@ def redraw_detail(part_id):
             else:
                 flash("Kebutuhan Redraw berhasil disimpan.", "success")
         elif action == "save_review" and can_edit("review"):
-            new_total = max(request.form.get("review_total", 1, type=int) or 1, 1)
+            raw_total = request.form.get("review_total", type=int)
+            new_total = 1 if raw_total is None else max(raw_total, 0)
             db.execute("UPDATE parts SET review_total=? WHERE id=?", (new_total, part_id))
             sync_review_progress(db, part_id)
             db.commit()
@@ -2189,25 +2217,21 @@ def redraw_detail(part_id):
             else:
                 flash("Kebutuhan Drawing Review berhasil disimpan.", "success")
         elif action == "save_partlist" and can_edit("partlist"):
-            new_status = request.form.get("partlist_status", part["partlist_status"])
-            db.execute(
-                "UPDATE parts SET partlist_note=?, partlist_status=?, partlist_done=?, "
-                "partlist_total=? WHERE id=?",
-                (
-                    request.form.get("partlist_note", ""),
-                    new_status,
-                    1 if request.form.get("partlist_done", part["partlist_done"], type=int) > 0 else 0,
-                    1,
-                    part_id,
-                ),
-            )
+            # Partlist dihitung per model; kebutuhan hanya 0 (tidak perlu -> Close) atau 1 (perlu).
+            mp_row = get_or_create_model_partlist(db, part["customer_id"], part["model_name"], part["category"], part["year"])
+            raw_need = request.form.get("partlist_total", type=int)
+            need = 1 if raw_need is None else (1 if raw_need >= 1 else 0)
+            db.execute("UPDATE model_partlists SET partlist_total=?, partlist_note=? WHERE id=?",
+                       (need, request.form.get("partlist_note", ""), mp_row["id"]))
+            sync_model_partlist(db, mp_row["id"])
             db.commit()
-            updated_part = db.execute("SELECT * FROM parts WHERE id=?", (part_id,)).fetchone()
-            email_sent = notify_progress_approval(updated_part, "Partlist", "-", new_status == "Sudah Approval")
+            email_sent = notify_redraw_requirement(part, f"Partlist: {need}", "Partlist")
             if email_sent:
-                flash(f"Partlist berhasil disimpan. Notifikasi email terkirim ke {recipient_label(new_status == 'Sudah Approval')}.", "success")
+                flash("Kebutuhan Partlist berhasil disimpan. Notifikasi email terkirim ke Marketing.", "success")
+            elif email_sent is False and current_divisi() == "Engineer":
+                flash("Kebutuhan Partlist berhasil disimpan, tetapi email notifikasi GAGAL terkirim. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
             else:
-                flash("Partlist berhasil disimpan, tetapi email notifikasi GAGAL terkirim. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
+                flash("Kebutuhan Partlist berhasil disimpan.", "success")
         elif action == "save_quick_note":
             db.execute("UPDATE parts SET quick_note=? WHERE id=?",
                        (request.form.get("quick_note", ""), part_id))
@@ -2445,6 +2469,8 @@ Lampiran:
             "belum": [f for f in progress_files if f["progress_type"] == progress_type and f["approval_status"] != "Sudah Approval"],
             "sudah": [f for f in progress_files if f["progress_type"] == progress_type and f["approval_status"] == "Sudah Approval"],
         }
+    model_pl = db.execute("SELECT * FROM model_partlists WHERE customer_id=? AND model_name=? AND category=? AND year=?",
+                          (part["customer_id"], part["model_name"], part["category"], part["year"])).fetchone()
     initial_tab = request.args.get("tab", "redraw")
     if initial_tab not in ("redraw", "review", "partlist"):
         initial_tab = "redraw"
@@ -2462,7 +2488,7 @@ Lampiran:
                    ORDER BY f.id""",
                 (part["customer_id"], part["model_name"], part["category"], part["year"]),
             ).fetchall()
-            need_summary.append(("Partlist", len(view_files), 1))
+            need_summary.append(("Partlist", len(view_files), 0 if (model_pl and model_pl["partlist_total"] == 0) else 1))
         elif initial_tab == "redraw":
             for jenis, col in (("Finish Good", "finish_good"), ("Komponen", "komponen"),
                                ("Drawing Tooling", "drawing_tooling"), ("Drawing Pipa", "drawing_pipa")):
@@ -2473,9 +2499,9 @@ Lampiran:
                     need_summary.append((jenis, have, need))
         else:
             have = len([f for f in progress_files if f["progress_type"] == "Drawing Review"])
-            need_summary.append(("Drawing Review", have, max(int(part["review_total"] or 1), 1)))
+            need_summary.append(("Drawing Review", have, 1 if part["review_total"] is None else max(int(part["review_total"]), 0)))
         return render_template(
-            "part_files.html", part=part, customer=customer, tab=initial_tab,
+            "part_files.html", part=part, customer=customer, tab=initial_tab, model_pl=model_pl,
             files=view_files, need_summary=need_summary, notes_by_divisi=notes_by_divisi,
             divisions=DIVISIONS, selected_month=month_arg,
         )
@@ -2485,7 +2511,7 @@ Lampiran:
     return render_template(
         "reason_detail.html", part=part, notes_by_divisi=notes_by_divisi,
         divisions=DIVISIONS, customer=customer, initial_tab=initial_tab,
-        progress_file_groups=progress_file_groups,
+        progress_file_groups=progress_file_groups, model_pl=model_pl,
     )
 
 @app.route("/notes/download/<path:stored_filename>")
@@ -2655,7 +2681,7 @@ def redraw_upload_page(part_id, progress_type):
         field = {"Finish Good":"finish_good", "Komponen":"komponen", "Drawing Tooling":"drawing_tooling", "Drawing Pipa":"drawing_pipa"}[progress_type]
         required_qty = int(part[field] or 0) if str(part[field] or "").isdigit() else 0
     elif progress_type == "Drawing Review":
-        required_qty = max(int(part["review_total"] or 1), 1)
+        required_qty = 1 if part["review_total"] is None else max(int(part["review_total"]), 0)
     else:
         required_qty = 1
 
@@ -2686,6 +2712,81 @@ def download_redraw_file(stored_filename):
         return redirect(request.referrer or url_for("progress"))
     return send_from_directory(app.config["UPLOAD_FOLDER"], stored_filename,
                                as_attachment=True, download_name=row["original_filename"])
+
+
+@app.route("/part/<int:part_id>/decision", methods=["POST"])
+@login_required
+def part_decision(part_id):
+    """Kondisi F/G: due date ditentukan setelah diskusi dengan Management.
+    Go  -> Marketing mengisi / mengubah due date.
+    No Go -> proses RFQ selesai di sini (final)."""
+    db = get_db()
+    part = db.execute("SELECT * FROM parts WHERE id=?", (part_id,)).fetchone()
+    if not part:
+        abort(404)
+    back = url_for("progress_model", category=part["category"], customer_id=part["customer_id"],
+                   month=request.form.get("back_month", ""))
+    if request.form.get("back_to") == "details":
+        back = url_for("details")
+    if current_divisi() != "Marketing":
+        flash("Hanya Marketing yang dapat mengisi due date / keputusan Go - No Go.", "error")
+        return redirect(back)
+    if (part["kondisi"] or "") not in ("F", "G"):
+        flash("Due date hanya dapat diubah manual untuk RFQ kondisi F dan G.", "error")
+        return redirect(back)
+    if (part["go_decision"] or "") == "No Go":
+        flash("Part ini sudah diputuskan No Go, proses selesai.", "error")
+        return redirect(back)
+
+    action = request.form.get("action", "")
+    label = f"{part['model_name']} / {part['part_no']}"
+    if action == "nogo":
+        if (part["go_decision"] or "") == "Go":
+            flash("Part ini sudah diputuskan Go, tidak bisa diubah menjadi No Go.", "error")
+            return redirect(back)
+        db.execute(
+            "UPDATE parts SET go_decision='No Go', due_date='', redraw_status='Close', review_status='Close' WHERE id=?",
+            (part_id,))
+        close_nogo_model_partlists(db)
+        db.commit()
+        email_sent = send_email_notification(
+            f"[Monitoring RFQ] No Go - Model {part['model_name']} dengan Partnumber {part['part_no']}",
+            f"Hasil diskusi dengan Management: NO GO.\n\nModel : {part['model_name']}\nPartnumber : {part['part_no']}\nKondisi : {part['kondisi']}\nPIC : {session.get('username', '-')} (Marketing)\n\nProses RFQ untuk part ini selesai, tidak dilanjutkan ke Redraw, Drawing Review, dan Partlist.\n",
+            ["Engineer", "Purchasing", "Management"])
+        if email_sent:
+            flash(f"{label}: No Go berhasil disimpan, proses selesai. Notifikasi email terkirim ke Engineering, Purchasing, dan Management.", "success")
+        else:
+            flash(f"{label}: No Go berhasil disimpan, tetapi email notifikasi GAGAL terkirim ke Engineering, Purchasing, dan Management. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
+        return redirect(back)
+
+    if action == "go":
+        due_raw = request.form.get("due_date", "").strip()
+        try:
+            due_dt = datetime.strptime(due_raw, "%Y-%m-%d")
+        except ValueError:
+            flash("Isi due date yang valid.", "error")
+            return redirect(back)
+        due_date = due_dt.date().isoformat()
+        month = due_dt.strftime("%B")
+        year = due_dt.year
+        if year != part["year"]:
+            db.execute("UPDATE model_partlists SET year=? WHERE customer_id=? AND model_name=? AND category=?",
+                       (year, part["customer_id"], part["model_name"], part["category"]))
+        db.execute("UPDATE parts SET go_decision='Go', due_date=?, month=?, year=? WHERE id=?",
+                   (due_date, month, year, part_id))
+        db.commit()
+        email_sent = send_email_notification(
+            f"[Monitoring RFQ] Go - Due date {due_date} - Model {part['model_name']} dengan Partnumber {part['part_no']}",
+            f"Hasil diskusi dengan Management: GO.\n\nModel : {part['model_name']}\nPartnumber : {part['part_no']}\nKondisi : {part['kondisi']}\nDue Date : {due_date}\nPIC : {session.get('username', '-')} (Marketing)\n\nSilakan lanjutkan proses Redraw, Drawing Review, dan Partlist sesuai due date.\n",
+            ["Engineer", "Purchasing", "Management"])
+        if email_sent:
+            flash(f"{label}: Go, due date {due_date} berhasil disimpan. Notifikasi email terkirim ke Engineering, Purchasing, dan Management.", "success")
+        else:
+            flash(f"{label}: Go, due date {due_date} berhasil disimpan, tetapi email notifikasi GAGAL terkirim ke Engineering, Purchasing, dan Management. Cek email grup divisi di .env dan konfigurasi SMTP.", "warning")
+        return redirect(back)
+
+    flash("Aksi tidak dikenali.", "error")
+    return redirect(back)
 
 
 @app.route("/customers", methods=["GET", "POST"])
@@ -2804,6 +2905,7 @@ def details():
                 (customer_id, model_name, category, year, month, partnumber, due_date)
             ).lastrowid
 
+        db.execute("UPDATE parts SET kondisi=? WHERE id=?", (kondisi, part_id))
         if due_date:
             db.execute(
                 "UPDATE parts SET due_date=?, month=?, year=? WHERE customer_id=? AND model_name=? AND category=? AND year=?",
@@ -2830,14 +2932,15 @@ def details():
             flash(f"File '{original_name}' berhasil dikirim, tetapi email notifikasi ke {note_target_text} GAGAL terkirim. Cek konfigurasi SMTP dan email anggota grup.", "warning")
         return redirect(url_for("details"))
 
-    submissions = db.execute("SELECT * FROM submissions ORDER BY id DESC LIMIT 200").fetchall()
+    submissions = db.execute(
+        """SELECT s.*, p.go_decision AS go_decision, p.due_date AS part_due_date
+           FROM submissions s LEFT JOIN parts p ON p.id=s.part_id
+           ORDER BY s.id DESC LIMIT 200""").fetchall()
     customers = db.execute("SELECT name FROM customers ORDER BY name").fetchall()
-    rfq_notes = db.execute("SELECT * FROM rfq_notes ORDER BY id DESC LIMIT 100").fetchall()
 
     return render_template(
         "details.html",
         submissions=submissions,
-        rfq_notes=rfq_notes,
         group_labels=GROUP_LABELS,
         customers=customers,
         can_submit=(current_divisi() == "Marketing"),
@@ -2848,43 +2951,6 @@ def details():
             for k, v in RFQ_CONDITION_SCHEDULE.items()
         ],
     )
-@app.route("/details/note", methods=["POST"])
-@login_required
-def send_rfq_note():
-    """Kirim note saja (tanpa file) ke grup yang dipilih, mis. untuk memberi
-    tahu kendala."""
-    if current_divisi() != "Marketing":
-        flash("Hanya divisi Marketing yang dapat mengirim note dari halaman ini.", "error")
-        return redirect(url_for("details"))
-    text = request.form.get("marketing_note", "").strip()
-    recipients = parse_note_targets("Marketing")
-    customer = request.form.get("customer", "").strip()
-    model_name = request.form.get("model_name", "").strip()
-    partnumber = request.form.get("partnumber", "").strip()
-    category = request.form.get("category", "").strip() if (customer or model_name or partnumber) else ""
-    if category not in CATEGORIES:
-        category = ""
-    if not text:
-        flash("Isi note terlebih dahulu sebelum mengirim.", "error")
-        return redirect(url_for("details"))
-    if not recipients:
-        flash("Pilih minimal satu tujuan pengiriman note.", "error")
-        return redirect(url_for("details"))
-    sent = notify_standalone_note(text, recipients, customer, model_name, partnumber, category)
-    recipient_text = ", ".join(recipients)
-    db = get_db()
-    db.execute(
-        "INSERT INTO rfq_notes (divisi, author, customer, model_name, partnumber, category, text, "
-        "recipient_divisions, email_sent, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        (current_divisi(), session["username"], customer, model_name, partnumber, category, text,
-         recipient_text, 1 if sent else 0, datetime.now().strftime("%d-%m-%Y %H:%M")),
-    )
-    db.commit()
-    if sent:
-        flash(f"Note berhasil dikirim ke {recipient_text}.", "success")
-    else:
-        flash(f"Note tersimpan, tetapi email ke {recipient_text} GAGAL terkirim. Cek konfigurasi SMTP dan email anggota grup.", "warning")
-    return redirect(url_for("details"))
 
 
 @app.route("/details/delete/<int:submission_id>", methods=["POST"])

@@ -13,6 +13,18 @@
       <div><span>Status</span><strong>{{ mp.partlist_status }}</strong></div>
     </div>
 
+    {% set pl_need = mp.partlist_total if mp.partlist_total is not none else 1 %}
+    {% if can_edit('partlist') %}
+    <form method="POST" class="single-upload-form">
+      <input type="hidden" name="action" value="save_partlist">
+      <label>Kebutuhan Partlist (1 = diperlukan, 0 = tidak diperlukan)
+        <input class="qty-input" type="number" min="0" max="1" name="partlist_total" value="{{ pl_need }}">
+      </label>
+      <button type="submit" class="btn-save">Save Kebutuhan</button>
+    </form>
+    {% if pl_need == 0 %}<p class="upload-help">Partlist tidak diperlukan untuk model ini, status otomatis Close.</p>{% endif %}
+    {% endif %}
+
     {% if can_edit('partlist') %}
     <form method="POST" enctype="multipart/form-data" class="single-upload-form">
       <input type="hidden" name="action" value="upload">

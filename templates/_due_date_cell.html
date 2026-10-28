@@ -1,0 +1,22 @@
+{# Isi sel Due Date. Kondisi F/G: "To be discussed" sampai Marketing memutuskan Go (isi due date) / No Go (selesai). #}
+{% set is_fg = p.kondisi in ['F', 'G'] %}
+{% if p.go_decision == 'No Go' %}
+  <span class="decision-badge nogo">No Go</span>
+{% elif p.due_date %}
+  {{ p.due_date }}
+  {% if is_fg and p.go_decision == 'Go' %}<span class="decision-badge go">Go</span>{% endif %}
+{% elif is_fg %}
+  <span class="decision-badge tbd">To be discussed</span>
+{% else %}-{% endif %}
+{% if is_fg and p.go_decision != 'No Go' and session.get('divisi') == 'Marketing' %}
+  <form class="due-decision-form" method="post" action="{{ url_for('part_decision', part_id=p.id) }}">
+    <input type="hidden" name="back_month" value="{{ selected_month or '' }}">
+    {% if back_to == 'details' %}<input type="hidden" name="back_to" value="details">{% endif %}
+    <input type="date" name="due_date" value="{{ p.due_date or '' }}" required>
+    <button type="submit" name="action" value="go" class="btn-decision go">{{ 'Simpan' if p.go_decision == 'Go' else 'Go' }}</button>
+    {% if p.go_decision != 'Go' %}
+    <button type="submit" name="action" value="nogo" class="btn-decision nogo" formnovalidate
+            onclick="return confirm('Putuskan No Go untuk part ini? Proses RFQ akan selesai dan tidak bisa diubah lagi.');">No Go</button>
+    {% endif %}
+  </form>
+{% endif %}

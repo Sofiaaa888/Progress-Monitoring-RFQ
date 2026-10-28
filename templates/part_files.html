@@ -28,13 +28,14 @@
         <span class="status-pill">{{ part.redraw_status }}</span>
         {% elif tab == 'review' %}
         <span>Progres Drawing Review:</span>
-        <strong>{{ part.review_done }}/{{ part.review_total or 1 }}</strong>
+        <strong>{{ part.review_done }}/{{ part.review_total if part.review_total is not none else 1 }}</strong>
         <span class="status-pill">{{ part.review_status }}</span>
         {% else %}
         {% set pl_done = files|selectattr('approval_status', 'equalto', 'Sudah Approval')|list|length %}
+        {% set pl_zero = model_pl and model_pl.partlist_total == 0 %}
         <span>Progres Partlist (1 file per model {{ part.model_name }}):</span>
-        <strong>{{ 1 if pl_done else 0 }}/1</strong>
-        <span class="status-pill">{{ 'Close' if pl_done else 'Open' }}</span>
+        <strong>{% if pl_zero %}0/0{% else %}{{ 1 if pl_done else 0 }}/1{% endif %}</strong>
+        <span class="status-pill">{{ 'Close' if (pl_zero or pl_done) else 'Open' }}</span>
         {% endif %}
       </div>
       {% if need_summary %}

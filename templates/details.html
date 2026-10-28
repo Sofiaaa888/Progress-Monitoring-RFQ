@@ -53,13 +53,9 @@
             </div>
 
             <small class="marketing-note-hint">
-              Saat <strong>Kirim File</strong>, note ikut dikirim di email RFQ ke grup yang dipilih
-              Pakai <strong>Kirim Note Saja</strong> untuk memberi tahu kendala tanpa mengirim file;
-              hanya isi note dan tujuan yang wajib, Customer/Model/Partnumber boleh dikosongkan.
+              Note ikut dikirim di email RFQ ke grup yang dipilih saat <strong>Kirim File</strong>.
+              Boleh dikosongkan jika tidak ada note.
             </small>
-            <button type="submit" class="btn-note-only"
-                    formaction="{{ url_for('send_rfq_note') }}"
-                    formnovalidate data-standalone-note>Kirim Note Saja</button>
           </div>
           {% endif %}
         </div>
@@ -154,7 +150,12 @@
       {% endif %}
     </td>
     <td class="condition-cell">{{ 'Kondisi ' ~ s.kondisi if s.kondisi else '-' }}</td>
-    <td>{{ s.due_date or 'Ditentukan Management' if s.kondisi in ['F','G'] else (s.due_date or '-') }}</td>
+    <td>
+      {% set p = {'id': s.part_id, 'kondisi': s.kondisi, 'go_decision': s.go_decision,
+                  'due_date': s.part_due_date or s.due_date} %}
+      {% set back_to = 'details' %}
+      {% if s.part_id %}{% include '_due_date_cell.html' %}{% else %}{{ s.due_date or '-' }}{% endif %}
+    </td>
 
     <td>{{ s.customer or '-' }}</td>
     <td>{{ s.model_name or '-' }}</td>
@@ -206,31 +207,6 @@
   </table> 
 </div>
     
-{% if rfq_notes %}
-<div class="panel wide-panel" style="margin-top:20px;">
-  <div class="panel-header">RIWAYAT NOTE (TANPA FILE)</div>
-  <table class="panel-table">
-    <thead>
-      <tr><th>No.</th><th>Tanggal</th><th>PIC Marketing</th><th>Customer</th><th>Model</th><th>Partnumber</th><th class="note-col">Note</th><th>Divisi</th></tr>
-    </thead>
-    <tbody>
-      {% for n in rfq_notes %}
-      <tr>
-        <td>{{ loop.index }}</td>
-        <td>{{ n.created_at }}</td>
-        <td>{{ n.author }} ({{ n.divisi }})</td>
-        <td>{{ n.customer or '-' }}</td>
-        <td>{{ n.model_name or '-' }}</td>
-        <td>{{ n.partnumber or '-' }}</td>
-        <td class="note-cell"><div class="note-cell-inner">{{ n.text }}</div></td>
-        <td>{{ n.recipient_divisions }}{% if not n.email_sent %} <em>(email gagal)</em>{% endif %}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
 <script>
 (function () {
   const schedule = {{ rfq_condition_schedule | tojson }};
@@ -318,8 +294,6 @@ const match = schedule.find(row => {
   return standardItems.length === selected.size &&
          standardItems.every(item => selected.has(item));
 });
-      const standalone = event.submitter && event.submitter.hasAttribute('data-standalone-note');
-      if (standalone) return;
       if (!match) {
         event.preventDefault();
         alert('Checklist belum sesuai dengan kondisi A-G pada jadwal RFQ.');
