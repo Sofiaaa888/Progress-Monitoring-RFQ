@@ -53,7 +53,8 @@ CREATE TABLE `model_partlists` (
   `year` int(11) NOT NULL,
   `partlist_status` varchar(30) DEFAULT 'Open',
   `partlist_done` int(11) DEFAULT 0,
-  `partlist_total` int(11) DEFAULT 1,
+  `partlist_total` int(11) DEFAULT 0,
+  `partlist_saved` int(11) NOT NULL DEFAULT 0,
   `partlist_note` text DEFAULT NULL,
   `created_at` varchar(30) DEFAULT ''
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -115,7 +116,8 @@ CREATE TABLE `parts` (
   `redraw_note` text DEFAULT NULL,
   `review_status` varchar(30) DEFAULT 'Open',
   `review_done` int(11) DEFAULT 0,
-  `review_total` int(11) DEFAULT 1,
+  `review_total` int(11) DEFAULT 0,
+  `review_saved` int(11) NOT NULL DEFAULT 0,
   `partlist_status` varchar(30) DEFAULT 'Open',
   `partlist_done` int(11) DEFAULT 0,
   `partlist_total` int(11) DEFAULT 1,

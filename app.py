@@ -478,7 +478,8 @@ def init_db():
            
             review_status VARCHAR(30) NOT NULL DEFAULT 'Open',
             review_done INTEGER NOT NULL DEFAULT 0,
-            review_total INTEGER NOT NULL DEFAULT 1,
+            review_total INTEGER NOT NULL DEFAULT 0,
+            review_saved INTEGER NOT NULL DEFAULT 0,
             
             partlist_status VARCHAR(30) NOT NULL DEFAULT 'Open',
             partlist_done INTEGER NOT NULL DEFAULT 0,
@@ -528,7 +529,8 @@ def init_db():
             year INT NOT NULL,
             partlist_status VARCHAR(30) NOT NULL DEFAULT 'Open',
             partlist_done INTEGER NOT NULL DEFAULT 0,
-            partlist_total INTEGER NOT NULL DEFAULT 1,
+            partlist_total INTEGER NOT NULL DEFAULT 0,
+            partlist_saved INTEGER NOT NULL DEFAULT 0,
             partlist_note TEXT,
             created_at VARCHAR(30) NOT NULL DEFAULT '',
             UNIQUE(customer_id, model_name, category, year)
@@ -584,7 +586,7 @@ def init_db():
     db.execute("UPDATE parts SET due_date='' WHERE kondisi IN ('F','G') AND COALESCE(go_decision,'')=''")
     backfill_demo_due_dates(db)
 
-    db.execute("UPDATE parts SET review_total=1 WHERE review_total IS NULL OR review_total < 0")
+    db.execute("UPDATE parts SET review_total=1 WHERE review_saved=1 AND (review_total IS NULL OR review_total < 0)")
     db.execute("UPDATE parts SET review_done=review_total WHERE review_done > review_total")
     db.execute("UPDATE parts SET review_status='Close' WHERE review_done >= review_total AND review_done > 0")
     db.execute("""
@@ -594,14 +596,14 @@ def init_db():
             partlist_status=CASE WHEN partlist_done > 0 THEN 'Close' ELSE 'Open' END
     """)
     # Kebutuhan Partlist per model hanya 0 atau 1 (0 = tidak diperlukan -> Close).
-    db.execute("UPDATE model_partlists SET partlist_total=1 WHERE partlist_total IS NULL OR partlist_total > 1 OR partlist_total < 0")
+    db.execute("UPDATE model_partlists SET partlist_total=1 WHERE partlist_saved=1 AND (partlist_total IS NULL OR partlist_total > 1 OR partlist_total < 0)")
     db.execute("""
         UPDATE model_partlists
         SET partlist_done=CASE WHEN partlist_done > 0 THEN 1 ELSE 0 END,
             partlist_status=CASE WHEN partlist_done > 0 THEN 'Close' ELSE 'Open' END
         WHERE partlist_total=1
     """)
-    db.execute("UPDATE model_partlists SET partlist_done=0, partlist_status='Close' WHERE partlist_total=0")
+    db.execute("UPDATE model_partlists SET partlist_done=0, partlist_status='Close' WHERE partlist_total=0 AND partlist_saved=1")
     close_nogo_model_partlists(db)
     db.commit()
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -668,12 +670,45 @@ def migrate(db):
         ("notes", "attachment_stored_filename", "VARCHAR(255) DEFAULT ''"),
         ("notes", "recipient_divisions", "TEXT DEFAULT ''"),
         ("model_partlists", "year", "INT"),
+        ("parts", "review_saved", "INTEGER NOT NULL DEFAULT 0"),
+        ("model_partlists", "partlist_saved", "INTEGER NOT NULL DEFAULT 0"),
     ]
+
+    def _has_col(table, col):
+        try:
+            db.execute(f"SELECT {col} FROM {table} LIMIT 1").fetchall()
+            return True
+        except Error:
+            return False
+    review_saved_is_new = not _has_col("parts", "review_saved")
+    partlist_saved_is_new = not _has_col("model_partlists", "partlist_saved")
+
     for table, col, coltype in extra_columns:
         try:
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coltype}")
         except Error:
             pass
+    # Data lama (kolom baru baru ditambahkan): yang sudah pernah disentuh (status/progress berubah,
+    # kebutuhan bukan default, atau sudah ada file) dianggap sudah disimpan. Sisanya kembali 0/0 Open.
+    if review_saved_is_new:
+        try:
+            db.execute("""UPDATE parts SET review_saved=1
+                          WHERE review_status<>'Open' OR review_done>0 OR COALESCE(review_total,1)<>1
+                             OR EXISTS (SELECT 1 FROM redraw_files rf
+                                        WHERE rf.part_id=parts.id AND rf.progress_type='Drawing Review')""")
+            db.execute("UPDATE parts SET review_total=0, review_done=0, review_status='Open' WHERE review_saved=0")
+        except Error:
+            pass
+    if partlist_saved_is_new:
+        try:
+            db.execute("""UPDATE model_partlists SET partlist_saved=1
+                          WHERE partlist_status<>'Open' OR partlist_done>0 OR COALESCE(partlist_total,1)<>1
+                             OR EXISTS (SELECT 1 FROM model_partlist_files f
+                                        WHERE f.model_partlist_id=model_partlists.id)""")
+            db.execute("UPDATE model_partlists SET partlist_total=0, partlist_done=0, partlist_status='Open' WHERE partlist_saved=0")
+        except Error:
+            pass
+    db.commit()
     try:
         # Isi kondisi part lama dari submission RFQ terakhirnya.
         db.execute(
@@ -692,7 +727,8 @@ def migrate(db):
             year INT NOT NULL,
             partlist_status VARCHAR(30) NOT NULL DEFAULT 'Open',
             partlist_done INTEGER NOT NULL DEFAULT 0,
-            partlist_total INTEGER NOT NULL DEFAULT 1,
+            partlist_total INTEGER NOT NULL DEFAULT 0,
+            partlist_saved INTEGER NOT NULL DEFAULT 0,
             partlist_note TEXT,
             created_at VARCHAR(30) NOT NULL DEFAULT '',
             UNIQUE(customer_id, model_name, category)
@@ -719,7 +755,7 @@ def migrate(db):
         """INSERT IGNORE INTO model_partlists
            (customer_id, model_name, category, year, partlist_status, partlist_done, partlist_total, partlist_note, created_at)
            SELECT customer_id, model_name, category, year,
-                  'Open', 0, 1, '', ''
+                  'Open', 0, 0, '', ''
            FROM parts
            GROUP BY customer_id, model_name, category"""
     )
@@ -736,7 +772,7 @@ def get_or_create_model_partlist(db, customer_id, model_name, category, year=Non
     new_id = db.execute(
         """INSERT INTO model_partlists
            (customer_id, model_name, category, year, partlist_status, partlist_done, partlist_total, created_at)
-           VALUES (?,?,?,?,'Open',0,1,?)""",
+           VALUES (?,?,?,?,'Open',0,0,?)""",
         (customer_id, model_name, category, year, datetime.now().strftime('%d-%m-%Y %H:%M')),
     ).lastrowid
     return db.execute("SELECT * FROM model_partlists WHERE id=?", (new_id,)).fetchone()
@@ -744,13 +780,30 @@ def sync_model_partlist(db, model_partlist_id):
     row = db.execute("SELECT * FROM model_partlists WHERE id=?", (model_partlist_id,)).fetchone()
     if not row:
         return
-    total = 0 if (row['partlist_total'] is not None and int(row['partlist_total']) == 0) else 1
+    saved = int(row['partlist_saved'] or 0)
+    uploaded = db.execute(
+        "SELECT COUNT(*) c FROM model_partlist_files WHERE model_partlist_id=?",
+        (model_partlist_id,),
+    ).fetchone()['c']
+    if not saved and uploaded == 0:
+        # Belum diapa-apakan (baru dari upload RFQ): 0/0 dan masih Open, BUKAN Close.
+        db.execute(
+            "UPDATE model_partlists SET partlist_done=0, partlist_status='Open', partlist_total=0 WHERE id=?",
+            (model_partlist_id,),
+        )
+        return
+    if not saved:
+        # Sudah ada file tapi kebutuhan belum disimpan Engineer -> anggap diperlukan (1).
+        total = 1
+        db.execute("UPDATE model_partlists SET partlist_saved=1 WHERE id=?", (model_partlist_id,))
+    else:
+        total = 0 if (row['partlist_total'] is not None and int(row['partlist_total']) == 0) else 1
     approved = db.execute(
         "SELECT COUNT(*) c FROM model_partlist_files WHERE model_partlist_id=? AND approval_status='Sudah Approval'",
         (model_partlist_id,),
     ).fetchone()['c']
     if total == 0:
-        # Partlist tidak diperlukan -> langsung Close.
+        # Engineer menyimpan kebutuhan 0/0 -> tidak diperlukan, Close.
         done, status = 0, 'Close'
     else:
         done = min(approved, total)
@@ -795,10 +848,10 @@ def sync_redraw_progress(db, part_id):
 def sync_review_progress(db, part_id):
     """Hitung ulang progress Drawing Review: kebutuhan = review_total (boleh 0 = tidak diperlukan -> Close),
     selesai = jumlah file Drawing Review yang sudah di-approve (maksimal sebesar kebutuhan)."""
-    part = db.execute("SELECT review_total FROM parts WHERE id=?", (part_id,)).fetchone()
+    part = db.execute("SELECT review_total, review_saved FROM parts WHERE id=?", (part_id,)).fetchone()
     if not part:
         return
-    total = 1 if part["review_total"] is None else max(int(part["review_total"]), 0)
+    saved = int(part["review_saved"] or 0)
     approved = db.execute(
         "SELECT COUNT(*) c FROM redraw_files WHERE part_id=? AND progress_type='Drawing Review' AND approval_status='Sudah Approval'",
         (part_id,),
@@ -807,6 +860,15 @@ def sync_review_progress(db, part_id):
         "SELECT COUNT(*) c FROM redraw_files WHERE part_id=? AND progress_type='Drawing Review'",
         (part_id,),
     ).fetchone()["c"]
+    if not saved and uploaded == 0:
+        # Belum diapa-apakan (baru dari upload RFQ): 0/0 dan masih Open, BUKAN Close.
+        db.execute("UPDATE parts SET review_status='Open', review_done=0, review_total=0 WHERE id=?", (part_id,))
+        return
+    if not saved:
+        # Sudah ada file tapi kebutuhan belum disimpan Engineer -> anggap diperlukan (1).
+        total = 1
+    else:
+        total = 1 if part["review_total"] is None else max(int(part["review_total"]), 0)
     done = min(int(approved), total)
     if total == 0 or done >= total:
         status = "Close"
@@ -814,7 +876,7 @@ def sync_review_progress(db, part_id):
         status = "Pending"
     else:
         status = "Open"
-    db.execute("UPDATE parts SET review_status=?, review_done=?, review_total=? WHERE id=?",
+    db.execute("UPDATE parts SET review_status=?, review_done=?, review_total=?, review_saved=1 WHERE id=?",
                (status, done, total, part_id))
 def overall_progress(row):
     total = int(row["total_parts"] or 0)
@@ -1605,7 +1667,7 @@ def dashboard_rfq_model_detail(customer_id, model_name, year):
         """SELECT p.*, mp.id AS model_partlist_id,
                  COALESCE(mp.partlist_status, 'Open') AS model_partlist_status,
                  COALESCE(mp.partlist_done, 0) AS model_partlist_done,
-                 COALESCE(mp.partlist_total, 1) AS model_partlist_total,
+                 COALESCE(mp.partlist_total, 0) AS model_partlist_total,
                  mpf.original_filename AS partlist_file_name,
                  mpf.stored_filename AS partlist_file_stored,
                  mpf.approval_status AS partlist_file_status
@@ -1921,7 +1983,7 @@ def render_progress_viewer(db, category, customer, selected_month, selected_year
         f"""SELECT p.*, mp.id AS model_partlist_id,
                   COALESCE(mp.partlist_status, 'Open') AS model_partlist_status,
                   COALESCE(mp.partlist_done, 0) AS model_partlist_done,
-                  COALESCE(mp.partlist_total, 1) AS model_partlist_total
+                  COALESCE(mp.partlist_total, 0) AS model_partlist_total
            FROM parts p
            LEFT JOIN model_partlists mp
              ON mp.customer_id=p.customer_id AND mp.model_name=p.model_name AND mp.category=p.category AND mp.year=p.year
@@ -1971,7 +2033,7 @@ def progress_model(category, customer_id):
         f"""SELECT p.*, mp.id AS model_partlist_id,
                   COALESCE(mp.partlist_status, 'Open') AS model_partlist_status,
                   COALESCE(mp.partlist_done, 0) AS model_partlist_done,
-                  COALESCE(mp.partlist_total, 1) AS model_partlist_total
+                  COALESCE(mp.partlist_total, 0) AS model_partlist_total
            FROM parts p
            LEFT JOIN model_partlists mp
              ON mp.customer_id=p.customer_id AND mp.model_name=p.model_name AND mp.category=p.category AND mp.year=p.year
@@ -2017,7 +2079,7 @@ def model_partlist_detail(model_partlist_id):
         elif action == "save_partlist":
             raw_need = request.form.get("partlist_total", type=int)
             need = 1 if raw_need is None else (1 if raw_need >= 1 else 0)
-            db.execute("UPDATE model_partlists SET partlist_total=?, partlist_note=? WHERE id=?",
+            db.execute("UPDATE model_partlists SET partlist_total=?, partlist_saved=1, partlist_note=? WHERE id=?",
                        (need, request.form.get("partlist_note", ""), model_partlist_id))
             sync_model_partlist(db, model_partlist_id)
             db.commit()
@@ -2205,7 +2267,7 @@ def redraw_detail(part_id):
         elif action == "save_review" and can_edit("review"):
             raw_total = request.form.get("review_total", type=int)
             new_total = 1 if raw_total is None else max(raw_total, 0)
-            db.execute("UPDATE parts SET review_total=? WHERE id=?", (new_total, part_id))
+            db.execute("UPDATE parts SET review_total=?, review_saved=1 WHERE id=?", (new_total, part_id))
             sync_review_progress(db, part_id)
             db.commit()
             updated_part = db.execute("SELECT * FROM parts WHERE id=?", (part_id,)).fetchone()
@@ -2221,7 +2283,7 @@ def redraw_detail(part_id):
             mp_row = get_or_create_model_partlist(db, part["customer_id"], part["model_name"], part["category"], part["year"])
             raw_need = request.form.get("partlist_total", type=int)
             need = 1 if raw_need is None else (1 if raw_need >= 1 else 0)
-            db.execute("UPDATE model_partlists SET partlist_total=?, partlist_note=? WHERE id=?",
+            db.execute("UPDATE model_partlists SET partlist_total=?, partlist_saved=1, partlist_note=? WHERE id=?",
                        (need, request.form.get("partlist_note", ""), mp_row["id"]))
             sync_model_partlist(db, mp_row["id"])
             db.commit()
@@ -2488,7 +2550,7 @@ Lampiran:
                    ORDER BY f.id""",
                 (part["customer_id"], part["model_name"], part["category"], part["year"]),
             ).fetchall()
-            need_summary.append(("Partlist", len(view_files), 0 if (model_pl and model_pl["partlist_total"] == 0) else 1))
+            need_summary.append(("Partlist", len(view_files), int(model_pl["partlist_total"] or 0) if model_pl else 0))
         elif initial_tab == "redraw":
             for jenis, col in (("Finish Good", "finish_good"), ("Komponen", "komponen"),
                                ("Drawing Tooling", "drawing_tooling"), ("Drawing Pipa", "drawing_pipa")):
@@ -2807,21 +2869,41 @@ def companies():
                 flash("Customer sudah ada.", "error")
         return redirect(url_for("companies"))
 
-    rows = db.execute(
+    base_rows = db.execute(
         """SELECT c.id, c.name,
            SUM(CASE WHEN p.redraw_status != 'Close' THEN 1 ELSE 0 END) redraw_pending,
            SUM(CASE WHEN p.review_status != 'Close' THEN 1 ELSE 0 END) review_pending,
-           SUM(CASE WHEN COALESCE(mp.partlist_status, 'Open') != 'Close' THEN 1 ELSE 0 END) partlist_pending,
            COUNT(p.id) total_parts
            FROM customers c
            LEFT JOIN parts p ON p.customer_id = c.id
-           LEFT JOIN model_partlists mp
-             ON mp.customer_id = p.customer_id
-            AND mp.model_name = p.model_name
-            AND mp.category = p.category
-            AND mp.year = p.year
-           GROUP BY c.id ORDER BY c.name"""
+           GROUP BY c.id, c.name ORDER BY c.name"""
     ).fetchall()
+    # Partlist berlaku per model (1 file per model), jadi pending dihitung per model
+    # dan hanya dari part yang benar-benar ada. Customer tanpa part tidak dihitung.
+    partlist_rows = db.execute(
+        """SELECT x.customer_id, COUNT(*) AS c
+           FROM (
+             SELECT p.customer_id, p.model_name, p.category, p.year
+             FROM parts p
+             LEFT JOIN model_partlists mp
+               ON mp.customer_id = p.customer_id
+              AND mp.model_name = p.model_name
+              AND mp.category = p.category
+              AND mp.year = p.year
+             WHERE COALESCE(mp.partlist_status, 'Open') <> 'Close'
+             GROUP BY p.customer_id, p.model_name, p.category, p.year
+           ) x
+           GROUP BY x.customer_id"""
+    ).fetchall()
+    partlist_map = {r["customer_id"]: int(r["c"] or 0) for r in partlist_rows}
+    rows = [{
+        "id": r["id"],
+        "name": r["name"],
+        "total_parts": int(r["total_parts"] or 0),
+        "redraw_pending": int(r["redraw_pending"] or 0),
+        "review_pending": int(r["review_pending"] or 0),
+        "partlist_pending": partlist_map.get(r["id"], 0),
+    } for r in base_rows]
     return render_template("companies.html", customers=rows, can_add_customer=(current_divisi() == "Marketing"))
 
 
@@ -2901,7 +2983,7 @@ def details():
                 """INSERT INTO parts (customer_id, model_name, category, year, month, part_no, due_date,
                    redraw_status, redraw_done, redraw_total, review_status, review_done, review_total,
                    partlist_status, partlist_done, partlist_total)
-                   VALUES (?,?,?,?,?,?,?, 'Open',0,0, 'Open',0,1, 'Open',0,1)""",
+                   VALUES (?,?,?,?,?,?,?, 'Open',0,0, 'Open',0,0, 'Open',0,1)""",
                 (customer_id, model_name, category, year, month, partnumber, due_date)
             ).lastrowid
 
