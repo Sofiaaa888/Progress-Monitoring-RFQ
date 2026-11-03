@@ -2180,3 +2180,13 @@ body {
 .btn-decision { padding: 3px 10px; font-size: 12px; border: 0; border-radius: 6px; cursor: pointer; color: #fff; }
 .btn-decision.go { background: #1e7a3c; }
 .btn-decision.nogo { background: #b02a37; }
+
+/* Total Seluruh RFQ = BIRU (sama dengan warna tema), angka tetap di kotak putih */
+.total-rfq-banner .total-rfq-all {
+  background: #123a8f;
+  color: #fff;
+}
+.total-rfq-banner .total-rfq-all .total-rfq-value {
+  background: #fff;
+  color: #123a8f;
+}

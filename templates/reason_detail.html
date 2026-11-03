@@ -156,7 +156,7 @@
           {% set pl_need = model_pl.partlist_total if (model_pl and model_pl.partlist_saved) else 1 %}
           {% set pl_shown = (model_pl.partlist_total or 0) if model_pl else 0 %}
           <table class="redraw-table">
-            <tr><td class="rlabel">Kebutuhan Partlist (Model {{ part.model_name }})</td><td><input class="qty-input" type="number" min="0" max="1" name="partlist_total" value="{{ pl_need }}" {% if not can_edit('partlist') %}disabled{% endif %}></td></tr>
+            <tr><td class="rlabel">Kebutuhan Partlist (per model {{ part.model_name }})</td><td><input class="qty-input" type="number" min="0" max="1" name="partlist_total" value="{{ pl_need }}" {% if not can_edit('partlist') %}disabled{% endif %}></td></tr>
           </table>
           <p class="upload-help">Isi 1 jika Partlist diperlukan, atau 0 jika tidak diperlukan (status otomatis Close).</p>
           <div class="redraw-progress-summary">

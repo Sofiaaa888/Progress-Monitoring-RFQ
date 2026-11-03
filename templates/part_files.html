@@ -35,7 +35,7 @@
         {% set pl_saved = model_pl and model_pl.partlist_saved %}
         {% set pl_zero = pl_saved and model_pl.partlist_total == 0 %}
         {% set pl_untouched = (not pl_saved) and (not files) %}
-        <span>Progres Partlist (Model {{ part.model_name }}):</span>
+        <span>Progres Partlist (1 file per model {{ part.model_name }}):</span>
         <strong>{% if pl_zero or pl_untouched %}0/0{% else %}{{ 1 if pl_done else 0 }}/1{% endif %}</strong>
         <span class="status-pill">{{ 'Close' if (pl_zero or pl_done) else 'Open' }}</span>
         {% endif %}
