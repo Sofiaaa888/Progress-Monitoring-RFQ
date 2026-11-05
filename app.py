@@ -18,7 +18,8 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-load_dotenv(os.path.join(BASE_DIR, '.env.example'))
+# Konfigurasi dibaca dari file .env (TIDAK di-commit). .env.example hanya template.
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
 MYSQL_USER = os.getenv("MYSQL_USER", "root")
@@ -26,7 +27,8 @@ MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "monitoring progress RFQ")
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY") or "sanoh-monitoring-rfq-secret-key"
+_secret_key = os.getenv("SECRET_KEY", "").strip()
+app.secret_key = _secret_key
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 
@@ -627,17 +629,25 @@ def hash_legacy_passwords(db):
 
 
 def ensure_admin(db):
-    """Pastikan minimal ada satu akun Admin. Password awal diambil dari ADMIN_PASSWORD
-    (default 'admin123') - segera ganti lewat halaman Kelola User setelah login pertama."""
+    """Pastikan minimal ada satu akun Admin. Password awal diambil dari ADMIN_PASSWORD di .env.
+    Jika kosong, dibuat password acak dan ditampilkan SEKALI di console/log server.
+    Segera ganti lewat halaman Kelola User setelah login pertama."""
     exists = db.execute("SELECT 1 FROM users WHERE divisi=?", (ADMIN_ROLE,)).fetchone()
     if exists:
         return
     username = os.getenv("ADMIN_USERNAME", "admin").strip() or "admin"
-    password = os.getenv("ADMIN_PASSWORD", "") or "admin123"
+    password = os.getenv("ADMIN_PASSWORD", "")
+    generated = False
+    if not password:
+        import secrets as _secrets
+        password = _secrets.token_urlsafe(12)
+        generated = True
     db.execute("INSERT IGNORE INTO users (username, password, divisi, email) VALUES (?,?,?,?)",
                (username, generate_password_hash(password), ADMIN_ROLE, ""))
     db.commit()
     print(f"[AUTH] Akun Admin dibuat: username '{username}'. Segera ganti passwordnya.")
+    if generated:
+        print(f"[AUTH] Password awal (acak, hanya tampil sekali): {password}")
 
 
 def migrate(db):
@@ -3108,4 +3118,8 @@ def reason(kind):
 if __name__ == "__main__":
     with app.app_context():
         init_db()
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(
+        debug=os.getenv("FLASK_DEBUG", "0") == "1",
+        host=os.getenv("FLASK_HOST", "127.0.0.1"),
+        port=int(os.getenv("PORT", "5000")),
+    )
