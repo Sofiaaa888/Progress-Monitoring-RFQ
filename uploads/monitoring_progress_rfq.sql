@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 05, 2026 at 03:57 AM
+-- Generation Time: Nov 05, 2026 at 08:17 AM
 -- Server version: 10.4.32-MariaDB-log
 -- PHP Version: 8.2.12
 
@@ -273,11 +273,11 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `password`, `divisi`, `email`) VALUES
-(233, 'Kia', 'scrypt:32768:8:1$CGcIOJBlHhQWpxna$8cbc6be9c5fde1a8c691fc640be31aa570a0deb7e5dcdc365228ebdf0637f28aadf1386cb0145549e9e015e6f1c4f45e08558ede7a1d59b93f46222df9207824', 'Engineer', 'hizkiasamhanrezayoshi@gmail.com'),
-(252, 'piak', 'scrypt:32768:8:1$te6cT2R9AefcsN0v$7353e3dec749e37a20f439e3be89c29179cc3c2bc49f21918e09d041f6766fa085252acca552712b71d6ecea2e88e7879c5205d558f77f02169e6e4c7567b2b5', 'Engineer', 'najwa8379@sma.belajar.id'),
-(546, 'naw', 'scrypt:32768:8:1$1y2WN0UBBmdctvUu$6fc14ffc76be39c5048789012d71cd096e76fccba4f8cf480cf913ae492593036a89a041accd5806dbc61a7569839529f40965da1af7a9f5f9257308714cce0c', 'Purchasing', 'nawwwsfyyy@gmail.com'),
-(547, 'sofi', 'scrypt:32768:8:1$sqxVlHERSG7ReV7B$1cfa5bc9aad2d0ea3d181162326084b2c7e4dcb99cac849e7cb332fc4d2df3de92be9b13e80197ede1f91d5e6bea104c61026bb4d86044073f603090925086a8', 'Purchasing', 'najwasofi888@gmail.com'),
-(548, 'ghaly', 'scrypt:32768:8:1$aCCyEhOLYorZnvJF$d60dfc9b195518b8a7e2502a9cd14fb871047af657375518e8250adccdb6cde0129fa8efac6eba62697386b52fd9359b0100924995c1a62d4ebd34becaeaefd6', 'Marketing', 'ghalyleo123@gmail.com'),
+(233, 'Kia', 'scrypt:32768:8:1$CGcIOJBlHhQWpxna$8cbc6be9c5fde1a8c691fc640be31aa570a0deb7e5dcdc365228ebdf0637f28aadf1386cb0145549e9e015e6f1c4f45e08558ede7a1d59b93f46222df9207824', 'Engineer', ''),
+(252, 'piak', 'scrypt:32768:8:1$te6cT2R9AefcsN0v$7353e3dec749e37a20f439e3be89c29179cc3c2bc49f21918e09d041f6766fa085252acca552712b71d6ecea2e88e7879c5205d558f77f02169e6e4c7567b2b5', 'Engineer', ''),
+(546, 'naw', 'scrypt:32768:8:1$1y2WN0UBBmdctvUu$6fc14ffc76be39c5048789012d71cd096e76fccba4f8cf480cf913ae492593036a89a041accd5806dbc61a7569839529f40965da1af7a9f5f9257308714cce0c', 'Purchasing', ''),
+(547, 'sofi', 'scrypt:32768:8:1$sqxVlHERSG7ReV7B$1cfa5bc9aad2d0ea3d181162326084b2c7e4dcb99cac849e7cb332fc4d2df3de92be9b13e80197ede1f91d5e6bea104c61026bb4d86044073f603090925086a8', 'Purchasing', ''),
+(548, 'ghaly', 'scrypt:32768:8:1$aCCyEhOLYorZnvJF$d60dfc9b195518b8a7e2502a9cd14fb871047af657375518e8250adccdb6cde0129fa8efac6eba62697386b52fd9359b0100924995c1a62d4ebd34becaeaefd6', 'Marketing', ''),
 (549, 'management1', 'scrypt:32768:8:1$d0Kf8Dmjkvix8DrN$0f6e40395dbe37ee8f8956a935edf7f18f404f2c561d960257f4e943a71daa453601eef7a5b18aeea2606560eff90027c5d447352b04b1412fb0f5aeb3915b7f', 'Management', ''),
 (582, 'admin', 'scrypt:32768:8:1$8daEXX86tHvLSBHQ$3f2b43d2010669214ab94a96d92e6673f77ddf4c5bd565c7b2ed0047eb74d61d002aa4f5a7669152e1f6cffcde2d184d2e6f61d047cfa952a6f5cc813786cb20', 'Admin', ''),
 (672, 'test1', 'scrypt:32768:8:1$E9qY4RRhJwY6y7tx$874d057e2cb9ac958ae986fed969c7e979c474440552425ba49e70b045643af8c4fb86950cb35731c5f23713a80347d204d15b076d0681f6856faa1e47cb0c2c', 'Engineer', 'test@mail.com');
@@ -375,7 +375,7 @@ ALTER TABLE `management_judgements`
 -- AUTO_INCREMENT for table `model_partlists`
 --
 ALTER TABLE `model_partlists`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=660;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=663;
 
 --
 -- AUTO_INCREMENT for table `model_partlist_files`
@@ -417,7 +417,7 @@ ALTER TABLE `submissions`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=705;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=708;
 
 --
 -- Constraints for dumped tables
