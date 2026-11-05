@@ -18,7 +18,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Konfigurasi dibaca dari file .env (TIDAK di-commit). .env.example hanya template.
+
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
