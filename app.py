@@ -18,7 +18,6 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Konfigurasi dibaca dari file .env (TIDAK di-commit). .env.example hanya template.
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
@@ -584,7 +583,6 @@ def init_db():
     db.commit()
     hash_legacy_passwords(db)
     ensure_admin(db)
-    # F/G yang belum diputuskan Go harus kosong (To be discussed), jangan terisi tanggal demo.
     db.execute("UPDATE parts SET due_date='' WHERE kondisi IN ('F','G') AND COALESCE(go_decision,'')=''")
     backfill_demo_due_dates(db)
 
@@ -597,7 +595,6 @@ def init_db():
             partlist_done=CASE WHEN partlist_done > 0 THEN 1 ELSE 0 END,
             partlist_status=CASE WHEN partlist_done > 0 THEN 'Close' ELSE 'Open' END
     """)
-    # Kebutuhan Partlist per model hanya 0 atau 1 (0 = tidak diperlukan -> Close).
     db.execute("UPDATE model_partlists SET partlist_total=1 WHERE partlist_saved=1 AND (partlist_total IS NULL OR partlist_total > 1 OR partlist_total < 0)")
     db.execute("""
         UPDATE model_partlists
@@ -698,8 +695,6 @@ def migrate(db):
             db.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coltype}")
         except Error:
             pass
-    # Data lama (kolom baru baru ditambahkan): yang sudah pernah disentuh (status/progress berubah,
-    # kebutuhan bukan default, atau sudah ada file) dianggap sudah disimpan. Sisanya kembali 0/0 Open.
     if review_saved_is_new:
         try:
             db.execute("""UPDATE parts SET review_saved=1
@@ -720,7 +715,6 @@ def migrate(db):
             pass
     db.commit()
     try:
-        # Isi kondisi part lama dari submission RFQ terakhirnya.
         db.execute(
             """UPDATE parts SET kondisi=COALESCE((SELECT s.kondisi FROM submissions s
                                                   WHERE s.part_id=parts.id ORDER BY s.id DESC LIMIT 1), '')
@@ -796,14 +790,12 @@ def sync_model_partlist(db, model_partlist_id):
         (model_partlist_id,),
     ).fetchone()['c']
     if not saved and uploaded == 0:
-        # Belum diapa-apakan (baru dari upload RFQ): 0/0 dan masih Open, BUKAN Close.
         db.execute(
             "UPDATE model_partlists SET partlist_done=0, partlist_status='Open', partlist_total=0 WHERE id=?",
             (model_partlist_id,),
         )
         return
     if not saved:
-        # Sudah ada file tapi kebutuhan belum disimpan Engineer -> anggap diperlukan (1).
         total = 1
         db.execute("UPDATE model_partlists SET partlist_saved=1 WHERE id=?", (model_partlist_id,))
     else:
@@ -813,7 +805,6 @@ def sync_model_partlist(db, model_partlist_id):
         (model_partlist_id,),
     ).fetchone()['c']
     if total == 0:
-        # Engineer menyimpan kebutuhan 0/0 -> tidak diperlukan, Close.
         done, status = 0, 'Close'
     else:
         done = min(approved, total)
@@ -849,7 +840,6 @@ def sync_redraw_progress(db, part_id):
     elif total > 0:
         status = "Pending"
     elif int(part["redraw_saved"] or 0):
-        # Engineering sudah menyimpan kebutuhan 0/0 -> tidak diperlukan, otomatis Close.
         status = "Close"
     else:
         status = "Open"
@@ -871,11 +861,9 @@ def sync_review_progress(db, part_id):
         (part_id,),
     ).fetchone()["c"]
     if not saved and uploaded == 0:
-        # Belum diapa-apakan (baru dari upload RFQ): 0/0 dan masih Open, BUKAN Close.
         db.execute("UPDATE parts SET review_status='Open', review_done=0, review_total=0 WHERE id=?", (part_id,))
         return
     if not saved:
-        # Sudah ada file tapi kebutuhan belum disimpan Engineer -> anggap diperlukan (1).
         total = 1
     else:
         total = 1 if part["review_total"] is None else max(int(part["review_total"]), 0)
@@ -913,7 +901,6 @@ def close_nogo_model_partlists(db):
                            AND COALESCE(p.go_decision,'')<>'No Go')""")
 def backfill_demo_due_dates(db):
     month_num = {name: i for i, name in enumerate(MONTHS, start=1)}
-    # Hanya data demo (tanpa RFQ submission) dan bukan kondisi F/G.
     rows = db.execute(
         """SELECT id, month, year FROM parts
            WHERE COALESCE(due_date, '')='' AND COALESCE(kondisi, '') NOT IN ('F','G')
@@ -1954,7 +1941,7 @@ def render_progress_documents(db, category, customer, selected_month, selected_y
     for (model_name, _year), first_id in first_part_of_model.items():
         fp = part_map.get(first_id)
         if fp is not None and (fp["customer_id"], model_name, fp["category"], _year) in zero_partlist:
-            continue  # Partlist model ini tidak diperlukan (0/0) -> tidak ada dokumen yang ditunggu
+            continue 
         if model_name not in partlist_models:
             docs.append({
                 "model": model_name, "part_no": "Semua P/N", "due_date": "-",
@@ -2289,7 +2276,6 @@ def redraw_detail(part_id):
             else:
                 flash("Kebutuhan Drawing Review berhasil disimpan.", "success")
         elif action == "save_partlist" and can_edit("partlist"):
-            # Partlist dihitung per model; kebutuhan hanya 0 (tidak perlu -> Close) atau 1 (perlu).
             mp_row = get_or_create_model_partlist(db, part["customer_id"], part["model_name"], part["category"], part["year"])
             raw_need = request.form.get("partlist_total", type=int)
             need = 1 if raw_need is None else (1 if raw_need >= 1 else 0)
@@ -2888,8 +2874,6 @@ def companies():
            LEFT JOIN parts p ON p.customer_id = c.id
            GROUP BY c.id, c.name ORDER BY c.name"""
     ).fetchall()
-    # Partlist berlaku per model (1 file per model), jadi pending dihitung per model
-    # dan hanya dari part yang benar-benar ada. Customer tanpa part tidak dihitung.
     partlist_rows = db.execute(
         """SELECT x.customer_id, COUNT(*) AS c
            FROM (
