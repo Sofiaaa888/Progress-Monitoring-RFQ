@@ -14,7 +14,7 @@
         <div class="checklist-col">
           <table class="checklist-table">
             <thead>
-              <tr><th>NO.</th><th>Input Data untuk RFQ</th></tr>
+              <tr><th>NO.</th><th>Input Data untuk RFQ <span class="req" title="Wajib dicentang sesuai kondisi">*</span></th></tr>
             </thead>
             <tbody>
               {% for item in rfq_input_items %}
@@ -31,6 +31,7 @@
             </tbody>
           </table>
           <p class="checklist-hint">Centang data yang sudah dilampirkan di dalam file yang dikirim.</p>
+          <p class="required-legend"><span class="req">*</span> wajib diisi</p>
 
           {% if can_submit %}
           <div class="marketing-note-field">
@@ -61,22 +62,23 @@
         </div>
 
         <div class="form-col">
-          <label>File
+          <label>File <span class="req" title="Wajib diisi">*</span>
             <input type="file" name="file" {% if can_submit %}required{% else %}disabled{% endif %} accept=".zip">
+            <small class="field-hint">Format ZIP, maksimal 20 MB.</small>
           </label>
-          <label>Customer
-            <input type="text" name="customer" list="customer-list" placeholder="Ex. PT A" {% if not can_submit %}disabled{% endif %}>
+          <label>Customer <span class="req" title="Wajib diisi">*</span>
+            <input type="text" name="customer" list="customer-list" placeholder="Ex. PT A" {% if can_submit %}required{% else %}disabled{% endif %}>
             <datalist id="customer-list">
               {% for c in customers %}<option value="{{ c.name }}">{% endfor %}
             </datalist>
           </label>
-          <label>Model
+          <label>Model <span class="req" title="Wajib diisi">*</span>
             <input type="text" name="model_name" placeholder="Ex. Model A" {% if not can_submit %}disabled{% endif %} required>
           </label>
-          <label>Partnumber
+          <label>Partnumber <span class="req" title="Wajib diisi">*</span>
             <input type="text" name="partnumber" placeholder="Ex. PN-001" {% if not can_submit %}disabled{% endif %} required>
           </label>
-          <label>Kategori Divisi
+          <label>Kategori Divisi <span class="req" title="Wajib diisi">*</span>
             <select name="category" {% if not can_submit %}disabled{% endif %}>
               {% for cat in ['Chassis', 'Nylon', 'Brazing'] %}
               <option value="{{ cat }}">{{ cat }}</option>

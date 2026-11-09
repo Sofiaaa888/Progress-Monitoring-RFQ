@@ -2940,89 +2940,106 @@ def details():
             flash(size_error, "error")
             return redirect(url_for("details"))
 
-        original_name = secure_filename(file.filename)
-        stored_name = f"{uuid.uuid4().hex}_{original_name}"
-        os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-        file.save(os.path.join(app.config["UPLOAD_FOLDER"], stored_name))
+        stored_name = None
+        try:
+            original_name = secure_filename(file.filename)
+            stored_name = f"{uuid.uuid4().hex}_{original_name}"
+            os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+            file.save(os.path.join(app.config["UPLOAD_FOLDER"], stored_name))
 
-        selected_items = request.form.getlist("items")
-        customer_name = request.form.get("customer", "").strip()
-        model_name = request.form.get("model_name", "").strip()
-        partnumber = request.form.get("partnumber", "").strip()
-        category = request.form.get("category", "Chassis").strip()
-        marketing_note = request.form.get("marketing_note", "").strip()
-        note_targets = parse_note_targets("Marketing", always_include="Engineer")
-        note_target_text = ", ".join(note_targets)
+            selected_items = request.form.getlist("items")
+            customer_name = request.form.get("customer", "").strip()
+            model_name = request.form.get("model_name", "").strip()
+            partnumber = request.form.get("partnumber", "").strip()
+            category = request.form.get("category", "Chassis").strip()
+            marketing_note = request.form.get("marketing_note", "").strip()
+            note_targets = parse_note_targets("Marketing", always_include="Engineer")
+            note_target_text = ", ".join(note_targets)
 
-        kondisi, standard_hours = determine_rfq_condition(selected_items)
-        due_date = calculate_due_date_from_hours(datetime.now(), standard_hours)
-        if category not in CATEGORIES:
-            category = "Chassis"
-        if not kondisi:
-            flash("Kombinasi checklist belum sesuai standar kondisi A-G pada jadwal RFQ. Silakan cek kembali dokumen yang dikirim.", "error")
-            try: os.remove(os.path.join(app.config["UPLOAD_FOLDER"], stored_name))
-            except OSError: pass
-            return redirect(url_for("details"))
-        if not customer_name or not model_name or not partnumber:
-            flash("Customer, Model, dan Partnumber wajib diisi.", "error")
-            try: os.remove(os.path.join(app.config["UPLOAD_FOLDER"], stored_name))
-            except OSError: pass
-            return redirect(url_for("details"))
-        customer_row = db.execute("SELECT id FROM customers WHERE name=?", (customer_name,)).fetchone()
-        if customer_row:
-            customer_id = customer_row["id"]
-        else:
-            customer_id = db.execute("INSERT INTO customers (name) VALUES (?)", (customer_name,)).lastrowid
-        year = datetime.now().year
-        month = datetime.now().strftime("%B")
-        if due_date:
-            try:
-                due_dt = datetime.strptime(due_date, "%Y-%m-%d")
-                year = due_dt.year
-                month = due_dt.strftime("%B")
-            except ValueError:
-                pass
+            kondisi, standard_hours = determine_rfq_condition(selected_items)
+            due_date = calculate_due_date_from_hours(datetime.now(), standard_hours)
+            if category not in CATEGORIES:
+                category = "Chassis"
+            if not kondisi:
+                flash("Kombinasi checklist belum sesuai standar kondisi A-G pada jadwal RFQ. Silakan cek kembali dokumen yang dikirim.", "error")
+                try: os.remove(os.path.join(app.config["UPLOAD_FOLDER"], stored_name))
+                except OSError: pass
+                return redirect(url_for("details"))
+            if not customer_name or not model_name or not partnumber:
+                flash("Customer, Model, dan Partnumber wajib diisi.", "error")
+                try: os.remove(os.path.join(app.config["UPLOAD_FOLDER"], stored_name))
+                except OSError: pass
+                return redirect(url_for("details"))
+            customer_row = db.execute("SELECT id FROM customers WHERE name=?", (customer_name,)).fetchone()
+            if customer_row:
+                customer_id = customer_row["id"]
+            else:
+                customer_id = db.execute("INSERT INTO customers (name) VALUES (?)", (customer_name,)).lastrowid
+            year = datetime.now().year
+            month = datetime.now().strftime("%B")
+            if due_date:
+                try:
+                    due_dt = datetime.strptime(due_date, "%Y-%m-%d")
+                    year = due_dt.year
+                    month = due_dt.strftime("%B")
+                except ValueError:
+                    pass
 
-        part_row = db.execute(
-            "SELECT id FROM parts WHERE customer_id=? AND model_name=? AND part_no=? AND category=? AND year=?",
-            (customer_id, model_name, partnumber, category, year)).fetchone()
-        if part_row:
-            part_id = part_row["id"]
-        else:
-            part_id = db.execute(
-                """INSERT INTO parts (customer_id, model_name, category, year, month, part_no, due_date,
-                   redraw_status, redraw_done, redraw_total, review_status, review_done, review_total,
-                   partlist_status, partlist_done, partlist_total)
-                   VALUES (?,?,?,?,?,?,?, 'Open',0,0, 'Open',0,0, 'Open',0,1)""",
-                (customer_id, model_name, category, year, month, partnumber, due_date)
-            ).lastrowid
+            part_row = db.execute(
+                "SELECT id FROM parts WHERE customer_id=? AND model_name=? AND part_no=? AND category=? AND year=?",
+                (customer_id, model_name, partnumber, category, year)).fetchone()
+            if part_row:
+                part_id = part_row["id"]
+            else:
+                part_id = db.execute(
+                    """INSERT INTO parts (customer_id, model_name, category, year, month, part_no, due_date,
+                       redraw_status, redraw_done, redraw_total, review_status, review_done, review_total,
+                       partlist_status, partlist_done, partlist_total)
+                       VALUES (?,?,?,?,?,?,?, 'Open',0,0, 'Open',0,0, 'Open',0,1)""",
+                    (customer_id, model_name, category, year, month, partnumber, due_date)
+                ).lastrowid
 
-        db.execute("UPDATE parts SET kondisi=? WHERE id=?", (kondisi, part_id))
-        if due_date:
+            db.execute("UPDATE parts SET kondisi=? WHERE id=?", (kondisi, part_id))
+            if due_date:
+                db.execute(
+                    "UPDATE parts SET due_date=?, month=?, year=? WHERE customer_id=? AND model_name=? AND category=? AND year=?",
+                    (due_date, month, year, customer_id, model_name, category, year),
+                )
+            get_or_create_model_partlist(db, customer_id, model_name, category, year)
+
             db.execute(
-                "UPDATE parts SET due_date=?, month=?, year=? WHERE customer_id=? AND model_name=? AND category=? AND year=?",
-                (due_date, month, year, customer_id, model_name, category, year),
-            )
-        get_or_create_model_partlist(db, customer_id, model_name, category, year)
+                """INSERT INTO submissions
+                   (original_filename, stored_filename, description, customer, model_name, partnumber, category,
+                    kondisi, due_date, year, part_id, uploaded_by, divisi, created_at, included_items, marketing_note,
+                    note_target_divisions)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (original_name, stored_name, "", customer_name, model_name, partnumber, category, kondisi, due_date, year,
+                 part_id, session["username"], current_divisi(), datetime.now().strftime("%d-%m-%Y %H:%M"),
+                 "; ".join(selected_items), marketing_note, note_target_text))
 
-        db.execute(
-            """INSERT INTO submissions
-               (original_filename, stored_filename, description, customer, model_name, partnumber, category,
-                kondisi, due_date, year, part_id, uploaded_by, divisi, created_at, included_items, marketing_note,
-                note_target_divisions)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (original_name, stored_name, "", customer_name, model_name, partnumber, category, kondisi, due_date, year,
-             part_id, session["username"], current_divisi(), datetime.now().strftime("%d-%m-%Y %H:%M"),
-             "; ".join(selected_items), marketing_note, note_target_text))
-
-        db.commit()
-        new_part = db.execute("SELECT * FROM parts WHERE id=?", (part_id,)).fetchone()
-        email_sent = notify_new_rfq(new_part, original_name, marketing_note, note_targets)
-        if email_sent:
-            flash(f"File '{original_name}' berhasil dikirim. Notifikasi email terkirim ke {note_target_text}.", "success")
-        else:
-            flash(f"File '{original_name}' berhasil dikirim, tetapi email notifikasi ke {note_target_text} GAGAL terkirim. Cek konfigurasi SMTP dan email anggota grup.", "warning")
-        return redirect(url_for("details"))
+            db.commit()
+            new_part = db.execute("SELECT * FROM parts WHERE id=?", (part_id,)).fetchone()
+            try:
+                email_sent = notify_new_rfq(new_part, original_name, marketing_note, note_targets)
+            except Exception as exc:
+                app.logger.exception("Email notifikasi RFQ gagal: %s", exc)
+                email_sent = False
+            if email_sent:
+                flash(f"File '{original_name}' berhasil dikirim. Notifikasi email terkirim ke {note_target_text}.", "success")
+            else:
+                flash(f"File '{original_name}' berhasil dikirim, tetapi email notifikasi ke {note_target_text} GAGAL terkirim. Cek konfigurasi SMTP dan email anggota grup.", "warning")
+            return redirect(url_for("details"))
+        except Exception as exc:
+            app.logger.exception("Upload RFQ Document gagal: %s", exc)
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            if stored_name:
+                try: os.remove(os.path.join(app.config["UPLOAD_FOLDER"], stored_name))
+                except OSError: pass
+            flash("Upload gagal karena terjadi kesalahan pada server. Data tidak tersimpan, silakan coba kirim ulang. Jika masih gagal, hubungi Admin.", "error")
+            return redirect(url_for("details"))
 
     submissions = db.execute(
         """SELECT s.*, p.go_decision AS go_decision, p.due_date AS part_due_date
