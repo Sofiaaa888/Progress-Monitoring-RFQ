@@ -87,10 +87,69 @@ window.addEventListener("pageshow", function (e) {
   if (e.persisted) { window.location.reload(); }
 });
 
+function showUploadError(form, msg) {
+  var old = form.querySelector(".form-error");
+  if (old) old.remove();
+  var box = document.createElement("div");
+  box.className = "form-error";
+  box.setAttribute("role", "alert");
+  box.textContent = msg;
+  var btn = form.querySelector("button[type=submit]");
+  if (btn && btn.parentNode) { btn.parentNode.insertBefore(box, btn); } else { form.appendChild(box); }
+}
+
+function ajaxUpload(form) {
+  var btn = form.querySelector("button[type=submit]");
+  var oldErr = form.querySelector(".form-error");
+  if (oldErr) oldErr.remove();
+  if (btn) {
+    if (btn.dataset.label === undefined) btn.dataset.label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Mengupload...";
+  }
+  var done = false;
+  function fail(msg) {
+    if (done) return;
+    done = true;
+    resetUploadButtons(form);
+    showUploadError(form, msg);
+  }
+  var xhr = new XMLHttpRequest();
+  xhr.open("POST", form.getAttribute("action") || window.location.href);
+  xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+  xhr.timeout = 600000;
+  xhr.upload.onprogress = function (ev) {
+    if (btn && ev.lengthComputable) {
+      btn.textContent = "Mengupload... " + Math.round(ev.loaded / ev.total * 100) + "%";
+    }
+  };
+  xhr.onload = function () {
+    var data = null;
+    try { data = JSON.parse(xhr.responseText); } catch (err) {}
+    if (xhr.status >= 200 && xhr.status < 300 && data && data.redirect) {
+      done = true;
+      window.location.href = data.redirect;
+      return;
+    }
+    if (data && data.error) {
+      fail(data.error);
+    } else if (xhr.status === 413) {
+      fail("Upload gagal: ukuran file terlalu besar (ZIP maksimal 20 MB). Silakan perkecil file lalu kirim ulang.");
+    } else {
+      fail("Upload gagal (kode " + xhr.status + "). Silakan klik Kirim File untuk mencoba lagi. Jika masih gagal, hubungi Admin.");
+    }
+  };
+  xhr.onerror = function () { fail("Upload gagal: koneksi ke server terputus. Silakan periksa koneksi lalu klik Kirim File lagi."); };
+  xhr.ontimeout = function () { fail("Upload gagal: server terlalu lama merespons. Silakan coba lagi."); };
+  xhr.onabort = function () { fail("Upload dibatalkan. Silakan coba lagi."); };
+  xhr.send(new FormData(form));
+}
+
 document.addEventListener("submit", function (e) {
   var form = e.target;
   if (!form.matches || !form.matches("form[enctype='multipart/form-data']")) return;
   if (e.defaultPrevented) return;
+  if (form.hasAttribute("data-ajax-upload")) { e.preventDefault(); ajaxUpload(form); return; }
   setTimeout(function () {
     if (e.defaultPrevented) return;
     form.querySelectorAll("button[type=submit], button:not([type])").forEach(function (btn) {
