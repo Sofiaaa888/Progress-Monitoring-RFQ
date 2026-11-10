@@ -108,41 +108,61 @@ function ajaxUpload(form) {
     btn.textContent = "Mengupload...";
   }
   var done = false;
+  var startedAt = Date.now();
   function fail(msg) {
     if (done) return;
     done = true;
-    resetUploadButtons(form);
-    showUploadError(form, msg);
+    /* Tahan minimal 0,7 detik supaya setiap percobaan terlihat (tidak langsung "berkedip"). */
+    var wait = Math.max(0, 700 - (Date.now() - startedAt));
+    setTimeout(function () {
+      resetUploadButtons(form);
+      showUploadError(form, msg + " (percobaan " + new Date().toLocaleTimeString("id-ID") + ")");
+    }, wait);
   }
-  var xhr = new XMLHttpRequest();
-  xhr.open("POST", form.getAttribute("action") || window.location.href);
-  xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-  xhr.timeout = 600000;
-  xhr.upload.onprogress = function (ev) {
-    if (btn && ev.lengthComputable) {
-      btn.textContent = "Mengupload... " + Math.round(ev.loaded / ev.total * 100) + "%";
-    }
-  };
-  xhr.onload = function () {
-    var data = null;
-    try { data = JSON.parse(xhr.responseText); } catch (err) {}
-    if (xhr.status >= 200 && xhr.status < 300 && data && data.redirect) {
-      done = true;
-      window.location.href = data.redirect;
-      return;
-    }
-    if (data && data.error) {
-      fail(data.error);
-    } else if (xhr.status === 413) {
-      fail("Upload gagal: ukuran file terlalu besar (ZIP maksimal 20 MB). Silakan perkecil file lalu kirim ulang.");
-    } else {
-      fail("Upload gagal (kode " + xhr.status + "). Silakan klik Kirim File untuk mencoba lagi. Jika masih gagal, hubungi Admin.");
-    }
-  };
-  xhr.onerror = function () { fail("Upload gagal: koneksi ke server terputus. Silakan periksa koneksi lalu klik Kirim File lagi."); };
-  xhr.ontimeout = function () { fail("Upload gagal: server terlalu lama merespons. Silakan coba lagi."); };
-  xhr.onabort = function () { fail("Upload dibatalkan. Silakan coba lagi."); };
-  xhr.send(new FormData(form));
+
+  var fd = new FormData(form);
+  var fileEntries = [];
+  fd.forEach(function (v, k) { if (v instanceof File && v.size > 0) fileEntries.push([k, v]); });
+
+  /* File disalin dulu ke memori supaya pengiriman ulang tidak bergantung pada file di disk. */
+  Promise.all(fileEntries.map(function (pair) {
+    return pair[1].arrayBuffer().then(function (buf) {
+      fd.set(pair[0], new File([buf], pair[1].name, { type: pair[1].type }));
+    });
+  })).then(function () {
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", form.getAttribute("action") || window.location.href);
+    xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+    xhr.timeout = 600000;
+    xhr.upload.onprogress = function (ev) {
+      if (btn && !done && ev.lengthComputable) {
+        btn.textContent = "Mengupload... " + Math.round(ev.loaded / ev.total * 100) + "%";
+      }
+    };
+    xhr.onload = function () {
+      var data = null;
+      try { data = JSON.parse(xhr.responseText); } catch (err) {}
+      if (xhr.status >= 200 && xhr.status < 300 && data && data.redirect) {
+        done = true;
+        window.location.href = data.redirect;
+        return;
+      }
+      if (data && data.error) {
+        fail(data.error);
+      } else if (xhr.status === 413) {
+        fail("Upload gagal: ukuran file terlalu besar (ZIP maksimal 20 MB). Silakan perkecil file lalu kirim ulang.");
+      } else {
+        fail("Upload gagal (kode " + xhr.status + "). Silakan klik Kirim File untuk mencoba lagi. Jika masih gagal, hubungi Admin.");
+      }
+    };
+    xhr.onerror = function () { fail("Upload gagal: koneksi ke server terputus (kode " + xhr.status + "). Periksa koneksi, lalu klik Kirim File lagi. Jika tetap gagal, pilih ulang file ZIP-nya."); };
+    xhr.ontimeout = function () { fail("Upload gagal: server terlalu lama merespons. Silakan coba lagi."); };
+    xhr.onabort = function () { fail("Upload dibatalkan. Silakan coba lagi."); };
+    xhr.send(fd);
+  }).catch(function (err) {
+    console.error("Gagal membaca file upload:", err);
+    fail("File ZIP tidak bisa dibaca (mungkin dipindah atau diubah setelah dipilih). Klik Choose File, pilih ulang file ZIP-nya, lalu kirim lagi.");
+  });
 }
 
 document.addEventListener("submit", function (e) {

@@ -454,6 +454,17 @@ def _is_xhr():
     return request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
 
+def _drain_request_body():
+    """Baca habis isi upload sebelum membalas error. Tanpa ini browser kadang melihat koneksi
+    'terputus' (server menutup koneksi saat file masih dikirim), padahal servernya sudah membalas."""
+    try:
+        stream = request.stream
+        while stream.read(65536):
+            pass
+    except Exception:
+        pass
+
+
 _ERROR_PAGE = """<!doctype html>
 <html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -470,6 +481,7 @@ a{display:inline-block;background:#1e4fd8;color:#fff;text-decoration:none;paddin
 @app.errorhandler(DatabaseUnavailable)
 def handle_database_unavailable(exc):
     app.logger.error("Database tidak dapat dihubungi: %s", exc)
+    _drain_request_body()
     message = ("Database sedang tidak dapat dihubungi, sehingga data belum tersimpan. "
                "Silakan coba lagi beberapa saat lagi. Jika masih gagal, hubungi Admin.")
     if _is_xhr():
@@ -479,6 +491,7 @@ def handle_database_unavailable(exc):
 
 @app.errorhandler(500)
 def handle_internal_error(exc):
+    _drain_request_body()
     message = ("Terjadi kesalahan pada server, sehingga permintaan belum berhasil. "
                "Silakan coba lagi. Jika masih gagal, hubungi Admin.")
     if _is_xhr():
