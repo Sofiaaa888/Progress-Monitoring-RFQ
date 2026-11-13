@@ -218,6 +218,7 @@
   const dueEl = document.getElementById('autoDueDate');
   const noteEl = document.getElementById('autoConditionNote');
   const form = document.querySelector('.upload-form');
+  const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
   if (!conditionEl || !hoursEl || !dueEl) return;
 
   function formatDate(date) {
@@ -225,6 +226,14 @@
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
     return `${d}-${m}-${y}`;
+  }
+
+  /* Tombol Kirim File hanya aktif jika checklist sesuai salah satu kondisi A-G. */
+  function setSubmitState(ok, reason) {
+    if (!submitBtn) return;
+    if (submitBtn.dataset.label !== undefined) return; /* sedang proses upload */
+    submitBtn.disabled = !ok;
+    submitBtn.title = ok ? '' : reason;
   }
 
   function updateAutoSchedule() {
@@ -256,6 +265,9 @@ const match = schedule.find(row => {
         ? 'Kombinasi checklist belum sesuai kondisi A-G pada jadwal. Sesuaikan centang dokumen.'
         : 'Centang checklist sesuai dokumen yang benar-benar dikirim.';
       noteEl.classList.remove('is-valid');
+      setSubmitState(false, selected.size
+        ? 'Checklist belum sesuai kondisi A-G. Sesuaikan centang dokumen.'
+        : 'Centang checklist terlebih dahulu.');
       return;
     }
 
@@ -272,9 +284,11 @@ const match = schedule.find(row => {
       noteEl.textContent = 'Due Date dihitung otomatis dari waktu pengiriman + ' + match.hours + ' jam sesuai standard pengerjaan per 1 item.';
     }
     noteEl.classList.add('is-valid');
+    setSubmitState(true);
   }
 
   checkboxes.forEach(cb => cb.addEventListener('change', updateAutoSchedule));
+  if (form) form.addEventListener('uploadreset', updateAutoSchedule);
   if (form) {
     form.addEventListener('submit', function (event) {
       const OPTIONAL_ITEMS = new Set([

@@ -79,6 +79,7 @@ function resetUploadButtons(form) {
       btn.textContent = btn.dataset.label;
       delete btn.dataset.label;
     });
+    f.dispatchEvent(new Event("uploadreset"));
   });
 }
 
